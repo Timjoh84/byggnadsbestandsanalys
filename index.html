@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Byggnadsbeståndsanalys</title>
+  <meta name="description" content="Analys av byggnadsbestånd: ålder, energiprestanda och kulturvärden.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #F7F8F8;
+      --surface: #FFFFFF;
+      --ink: #1C2127;
+      --muted: #5E6772;
+      --line: #E1E5E8;
+      --accent: #3E6A8C;
+      --road: #DFE4E8;
+      --plate: #F3F5F6;
+      --park: #E3ECE1;
+      --tree: #CADBC6;
+      --water: #DCE8F0;
+      --hatch: rgba(28, 33, 39, 0.55);
+
+      /* Energiklasser A till G */
+      --e-A: #4F9A73;
+      --e-B: #7DB487;
+      --e-C: #B2CC8C;
+      --e-D: #E4D78F;
+      --e-E: #EDBE84;
+      --e-F: #E39B78;
+      --e-G: #CF7469;
+
+      --gutter: clamp(16px, 5vw, 64px);
+      --max: 1180px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 1.0625rem;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+    }
+
+    /* Navigation */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(247, 248, 248, 0.85);
+      backdrop-filter: saturate(160%) blur(12px);
+      -webkit-backdrop-filter: saturate(160%) blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .site-header .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      height: 56px;
+    }
+    .wordmark {
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .site-nav ul {
+      display: flex;
+      gap: clamp(14px, 3vw, 32px);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .site-nav a {
+      font-size: 0.9375rem;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .site-nav a:hover { color: var(--ink); }
+
+    /* Hero */
+    .hero .wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 4.4fr) minmax(0, 7.6fr);
+      align-items: center;
+      gap: clamp(32px, 5vw, 72px);
+      padding-top: clamp(48px, 8vw, 104px);
+      padding-bottom: clamp(56px, 8vw, 104px);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 28px;
+      font-size: 0.9375rem;
+      color: var(--muted);
+    }
+    .status::before {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border: 1.5px dashed var(--muted);
+      border-radius: 2px;
+    }
+    .hero h1 {
+      margin: 0 0 24px;
+      font-size: clamp(2.75rem, 5.6vw, 4.75rem);
+      font-weight: 600;
+      line-height: 1.02;
+      letter-spacing: -0.035em;
+    }
+    .lede {
+      margin: 0;
+      max-width: 30em;
+      font-size: 1.1875rem;
+      color: var(--muted);
+    }
+
+    /* Kvartersplan */
+    .plan {
+      position: relative;
+      margin: 0;
+    }
+    .plan svg#plan {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: var(--road);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      touch-action: manipulation;
+    }
+
+    .b { transition: opacity 500ms ease; cursor: default; }
+    .b.pending { opacity: 0; }
+    .b.dim { opacity: 0.12; }
+    .b:hover .body { stroke: var(--ink); stroke-width: 1.4; }
+    @media (prefers-reduced-motion: reduce) {
+      .b { transition: none; }
+      .b.pending { opacity: 1; }
+    }
+
+    .tip {
+      position: absolute;
+      z-index: 2;
+      pointer-events: none;
+      min-width: 150px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 6px 24px rgba(28, 33, 39, 0.08);
+      font-size: 0.8125rem;
+      line-height: 1.45;
+      color: var(--muted);
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 120ms ease, transform 120ms ease;
+    }
+    .tip.show { opacity: 1; transform: none; }
+    .tip strong { display: block; color: var(--ink); font-weight: 600; font-size: 0.875rem; }
+    .tip .tip-energy {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tip .tip-energy i {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* Teckenförklaring */
+    .legend {
+      display: grid;
+      gap: 12px;
+      margin-top: 18px;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .legend-group {
+      display: grid;
+      grid-template-columns: 11.5em minmax(0, 1fr);
+      align-items: center;
+      gap: 8px 14px;
+    }
+    .legend-title {
+      color: var(--ink);
+      font-weight: 500;
+    }
+    .legend-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .key {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 9px 4px 5px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+    .key:hover, .key[aria-pressed="true"] {
+      background: var(--surface);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+    .key.energy {
+      padding: 0;
+      width: 28px;
+      height: 28px;
+      justify-content: center;
+      font-weight: 600;
+      color: var(--ink);
+      border-radius: 5px;
+    }
+    .key.energy:hover, .key.energy[aria-pressed="true"] {
+      border-color: var(--ink);
+    }
+    .key svg { display: block; flex: none; }
+    .key .dash {
+      width: 16px;
+      height: 16px;
+      border: 1.5px dashed var(--muted);
+      border-radius: 2px;
+      background: var(--surface);
+    }
+    .legend-note {
+      margin: 0;
+      font-size: 0.8125rem;
+    }
+
+    /* Sektioner */
+    .sections {
+      padding-bottom: clamp(64px, 10vw, 128px);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) minmax(0, 2fr);
+      gap: 16px 40px;
+      align-items: baseline;
+      padding: 36px 0;
+      border-top: 1px solid var(--line);
+      scroll-margin-top: 72px;
+    }
+    .row:last-child { border-bottom: 1px solid var(--line); }
+    .row h2 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2.6vw, 2rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+    }
+    .row p {
+      margin: 0;
+      max-width: 36em;
+      color: var(--muted);
+    }
+    .row .soon {
+      justify-self: end;
+      white-space: nowrap;
+      font-size: 0.875rem;
+      color: var(--muted);
+      padding: 4px 12px;
+      border: 1.5px dashed #B9C3CB;
+      border-radius: 999px;
+    }
+
+    .site-footer {
+      padding: 32px 0 48px;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .site-footer .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px 24px;
+    }
+    .site-footer p { margin: 0; }
+
+    @media (max-width: 900px) {
+      .hero .wrap { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 1fr; }
+      .row .soon { justify-self: start; }
+    }
+    @media (max-width: 560px) {
+      .site-header .wrap { height: auto; padding-top: 12px; padding-bottom: 12px; flex-direction: column; align-items: flex-start; gap: 8px; }
+      .site-nav ul { flex-wrap: wrap; gap: 6px 18px; }
+      .legend-group { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="wordmark" href="#top">Byggnadsbeståndsanalys</a>
+      <nav class="site-nav" aria-label="Huvudmeny">
+        <ul>
+          <li><a href="#top">Hem</a></li>
+          <li><a href="#projekt">Referensprojekt</a></li>
+          <li><a href="#artiklar">Forskningsartiklar</a></li>
+          <li><a href="#labb">Labb</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="wrap">
+        <div>
+          <p class="status">Sajten är under ombyggnad</p>
+          <h1>Vi bygger om.</h1>
+          <p class="lede">Vi analyserar hela byggnadsbestånd: ålder, energiprestanda och kulturvärden. Snart samlar vi projekt, artiklar och verktyg här.</p>
+        </div>
+
+        <figure class="plan" id="plan-figure">
+          <svg id="plan" viewBox="0 0 720 510" role="img" aria-labelledby="plan-title plan-desc">
+            <title id="plan-title">Illustrerad stadsdel sedd ovanifrån</title>
+            <desc id="plan-desc">Byggnader färgade efter energiklass och mönstrade efter kulturhistoriskt värde, med gator, en park och vatten.</desc>
+            <defs>
+              <pattern id="p-bm" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                <path d="M0 0H4M0 0V4" stroke="var(--hatch)" stroke-width="0.9" fill="none"/>
+              </pattern>
+              <pattern id="p-v" width="5" height="5" patternUnits="userSpaceOnUse">
+                <circle cx="2.5" cy="2.5" r="0.95" fill="var(--hatch)"/>
+              </pattern>
+            </defs>
+            <g id="ground"></g>
+            <g id="buildings"></g>
+          </svg>
+          <div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+          <figcaption class="legend">
+            <div class="legend-group">
+              <span class="legend-title" id="lg-energy">Energiklass</span>
+              <div class="legend-items" role="group" aria-labelledby="lg-energy" id="energy-keys"></div>
+            </div>
+            <div class="legend-group">
+              <span class="legend-title" id="lg-value">Kulturhistoriskt värde</span>
+              <div class="legend-items" role="group" aria-labelledby="lg-value">
+                <button class="key" type="button" data-filter="value" data-key="bm" aria-pressed="false">
+                  <svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" rx="2" fill="#D5DBE0"/><rect width="16" height="16" rx="2" fill="url(#p-bm)"/></svg>Byggnadsminne
+                </button>
+                <button class="key" type="button" data-filter="value" data-key="v" aria-pressed="false">
+                  <svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" rx="2" fill="#D5DBE0"/><rect width="16" height="16" rx="2" fill="url(#p-v)"/></svg>Värdefull
+                </button>
+                <button class="key" type="button" data-filter="value" data-key="none" aria-pressed="false">
+                  <svg width="16" height="16" aria-hidden="true"><rect width="16" height="16" rx="2" fill="#D5DBE0"/></svg>Ej klassad
+                </button>
+                <button class="key" type="button" data-filter="value" data-key="new" aria-pressed="false">
+                  <span class="dash" aria-hidden="true"></span>Under uppbyggnad
+                </button>
+              </div>
+            </div>
+            <p class="legend-note">Illustration med påhittade data.</p>
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="sections" aria-label="Innehåll som kommer">
+      <div class="wrap">
+        <article class="row" id="projekt">
+          <h2>Referensprojekt</h2>
+          <p>Kartläggningar av byggnadsbestånd, från enskilda kvarter till hela städer.</p>
+          <span class="soon">Kommer snart</span>
+        </article>
+        <article class="row" id="artiklar">
+          <h2>Forskningsartiklar</h2>
+          <p>Publikationer och konferensbidrag, bland annat om AI-stödd klassificering av byggnader.</p>
+          <span class="soon">Kommer snart</span>
+        </article>
+        <article class="row" id="labb">
+          <h2>Labb</h2>
+          <p>Interaktiva kartor och verktyg på labs.byggnadsbestandsanalys.se.</p>
+          <span class="soon">Kommer snart</span>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© <span id="year">2026</span> Byggnadsbeståndsanalys</p>
+      <p>byggnadsbestandsanalys.se</p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var yearEl = document.getElementById("year");
+      if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+      var svg = document.getElementById("plan");
+      if (!svg) return;
+      var NS = "http://www.w3.org/2000/svg";
+      var ground = document.getElementById("ground");
+      var layer = document.getElementById("buildings");
+      var figure = document.getElementById("plan-figure");
+      var tip = document.getElementById("tip");
+
+      var ENERGY = ["A", "B", "C", "D", "E", "F", "G"];
+      var VALUE_LABEL = { bm: "Byggnadsminne", v: "Värdefull", none: "Ej klassad", new: "Under uppbyggnad" };
+      var VALUE_PATTERN = { bm: "url(#p-bm)", v: "url(#p-v)" };
+
+      // Fast slumpfrö så att stadsdelen ser likadan ut vid varje besök
+      var seed = 1912;
+      function rand() {
+        seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+        var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      }
+      function between(a, b) { return a + rand() * (b - a); }
+      function pick(weights) {
+        var keys = Object.keys(weights), total = 0, i;
+        for (i = 0; i < keys.length; i++) total += weights[keys[i]];
+        var r = rand() * total;
+        for (i = 0; i < keys.length; i++) { r -= weights[keys[i]]; if (r <= 0) return keys[i]; }
+        return keys[keys.length - 1];
+      }
+
+      function rect(x, y, w, h) { return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]; }
+      function rotate(pts, deg) {
+        var cx = 0, cy = 0;
+        pts.forEach(function (p) { cx += p[0]; cy += p[1]; });
+        cx /= pts.length; cy /= pts.length;
+        var a = deg * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+        return pts.map(function (p) {
+          var dx = p[0] - cx, dy = p[1] - cy;
+          return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+        });
+      }
+      function toPoints(pts) { return pts.map(function (p) { return p[0].toFixed(1) + "," + p[1].toFixed(1); }).join(" "); }
+
+      function el(name, attrs, parent) {
+        var n = document.createElementNS(NS, name);
+        for (var k in attrs) n.setAttribute(k, attrs[k]);
+        (parent || ground).appendChild(n);
+        return n;
+      }
+
+      var buildings = [];
+      function add(pts, o) {
+        buildings.push({
+          pts: pts,
+          type: o.type,
+          year: Math.round(between(o.years[0], o.years[1])),
+          energy: o.newBuild ? null : pick(o.energy),
+          value: o.newBuild ? "new" : pick(o.value)
+        });
+      }
+
+      function plate(x, y, w, h, fill) {
+        el("rect", { x: x, y: y, width: w, height: h, rx: 3, fill: fill || "var(--plate)" });
+      }
+
+      // Vatten och strandväg
+      el("path", { d: "M0 488 C 150 480, 290 498, 450 490 S 660 482, 720 490 L720 510 L0 510 Z", fill: "var(--water)" });
+
+      // Huvudgator med mittlinje
+      function centerLine(d) {
+        el("path", { d: d, fill: "none", stroke: "#FFFFFF", "stroke-width": 1, "stroke-dasharray": "6 5", "stroke-linecap": "round" });
+      }
+
+      // Innerstad: slutna stenkvarter, 1880 till 1930
+      var inner = {
+        type: "Flerbostadshus i sten",
+        years: [1882, 1929],
+        energy: { D: 1.5, E: 3, F: 3.5, G: 2 },
+        value: { v: 3, none: 7 }
+      };
+
+      function perimeterBlock(x, y, w, h, d) {
+        plate(x, y, w, h);
+        function split(len) {
+          var n = Math.max(2, Math.round(len / between(26, 40)));
+          var parts = [], sum = 0, i;
+          for (i = 0; i < n; i++) { parts.push(between(0.7, 1.3)); sum += parts[i]; }
+          return parts.map(function (p) { return p / sum * len; });
+        }
+        [["n", y], ["s", y + h]].forEach(function (side) {
+          var px = x, parts = split(w);
+          parts.forEach(function (len, i) {
+            var corner = i === 0 || i === parts.length - 1;
+            var depth = corner ? d : d + between(-4, 4);
+            var yy = side[0] === "n" ? side[1] : side[1] - depth;
+            add(rect(px, yy, len, depth), inner);
+            px += len;
+          });
+        });
+        [["w", x], ["e", x + w]].forEach(function (side) {
+          var py = y + d, parts = split(h - 2 * d);
+          parts.forEach(function (len) {
+            var depth = d + between(-4, 3);
+            var xx = side[0] === "w" ? side[1] : side[1] - depth;
+            add(rect(xx, py, depth, len), inner);
+            py += len;
+          });
+        });
+        if (rand() < 0.5) {
+          var gw = between(18, 30), gh = between(12, 18);
+          add(rect(x + w / 2 - gw / 2 + between(-10, 10), y + h / 2 - gh / 2 + between(-8, 8), gw, gh), {
+            type: "Gårdshus", years: [1885, 1925],
+            energy: { E: 2, F: 3, G: 3 }, value: { v: 2, none: 5 }
+          });
+        }
+      }
+
+      var X0 = 16, Y0 = 16, ST = 12;
+      var bw = [96, 96, 98], bh = [111, 111];
+      var bx = [X0, X0 + bw[0] + ST, X0 + bw[0] + bw[1] + 2 * ST];
+      var by = [Y0, Y0 + bh[0] + ST];
+      for (var r = 0; r < 2; r++) {
+        for (var c = 0; c < 3; c++) {
+          if (r === 1 && c === 1) continue;
+          perimeterBlock(bx[c], by[r], bw[c], bh[r], 20);
+        }
+      }
+
+      // Park med kyrka
+      plate(bx[1], by[1], bw[1], bh[1], "var(--park)");
+      (function () {
+        var px = bx[1], py = by[1], pw = bw[1], ph = bh[1];
+        for (var t = 0; t < 26; t++) {
+          var tx = px + between(8, pw - 8), ty = py + between(8, ph - 8);
+          if (Math.abs(tx - (px + pw / 2)) < 20 && ty > py + 18 && ty < py + ph - 14) continue;
+          el("circle", { cx: tx.toFixed(1), cy: ty.toFixed(1), r: between(3, 5.5).toFixed(1), fill: "var(--tree)" });
+        }
+        var cx = px + pw / 2;
+        buildings.push({ pts: rect(cx - 10, py + 34, 20, 52), type: "Kyrka", year: 1891, energy: "G", value: "bm" });
+        buildings.push({ pts: rect(cx - 7, py + 22, 14, 13), type: "Kyrktorn", year: 1891, energy: "G", value: "bm" });
+      })();
+
+      // Folkhemmets lamellhus, 1946 till 1959
+      plate(344, 16, 360, 184);
+      var lamell = {
+        type: "Lamellhus", years: [1946, 1959],
+        energy: { C: 0.5, D: 3.5, E: 4, F: 2 },
+        value: { v: 2, none: 8 }
+      };
+      for (var j = 0; j < 4; j++) {
+        for (var i = 0; i < 4; i++) {
+          if (rand() < 0.08) continue;
+          var lx = 344 + 16 + i * 86 + (j % 2 ? 12 : 0);
+          var ly = 34 + j * 42;
+          add(rotate(rect(lx, ly, between(58, 70), 14), between(-2, 2)), lamell);
+        }
+      }
+
+      // Nybyggda kvarter, 2008 till 2024, och några hus under uppbyggnad
+      plate(344, 214, 360, 116);
+      var modern = {
+        type: "Flerbostadshus", years: [2008, 2024],
+        energy: { A: 4, B: 5, C: 1 }, value: { none: 1 }
+      };
+      var building = { type: "Flerbostadshus", years: [2026, 2028], newBuild: true };
+      function uBlock(x, y, w, h, d, under) {
+        var parts = [
+          rect(x, y, w * 0.5, d), rect(x + w * 0.5, y, w * 0.5, d),
+          rect(x, y + d, d, h - d), rect(x + w - d, y + d, d, (h - d) * 0.55),
+          rect(x + w - d, y + d + (h - d) * 0.55, d, (h - d) * 0.45)
+        ];
+        parts.forEach(function (p, k) { add(p, under.indexOf(k) > -1 ? building : modern); });
+      }
+      uBlock(356, 226, 160, 92, 18, []);
+      uBlock(532, 226, 160, 92, 18, [1, 3, 4]);
+      add(rect(590, 266, 34, 26), building);
+
+      // Miljonprogrammet: skivhus och punkthus, 1966 till 1974
+      plate(344, 344, 360, 116);
+      var miljon = {
+        type: "Skivhus", years: [1966, 1974],
+        energy: { C: 0.4, D: 3, E: 4.5, F: 2.5 }, value: { v: 0.5, none: 9 }
+      };
+      add(rect(360, 360, 156, 18), miljon);
+      add(rect(360, 404, 156, 18), miljon);
+      add(rect(530, 360, 160, 18), miljon);
+      var point = { type: "Punkthus", years: [1966, 1972], energy: { D: 3, E: 4, F: 2 }, value: { none: 1 } };
+      add(rect(542, 400, 28, 28), point);
+      add(rect(594, 408, 28, 28), point);
+      add(rect(646, 400, 28, 28), point);
+      add(rect(360, 436, 40, 12), { type: "Butikslänga", years: [1968, 1972], energy: { E: 1, F: 1 }, value: { none: 1 } });
+
+      // Villastaden, 1921 till 1978
+      var villa = {
+        type: "Villa", years: [1921, 1978],
+        energy: { C: 1.5, D: 3.5, E: 3.5, F: 1.5 },
+        value: { v: 1.2, none: 9 }
+      };
+      [[264, 92], [370, 90]].forEach(function (p) {
+        plate(16, p[0], 314, p[1]);
+        el("rect", { x: 16, y: p[0] + 34, width: 314, height: 7, fill: "var(--road)" });
+        for (var row = 0; row < 2; row++) {
+          for (var col = 0; col < 8; col++) {
+            if (rand() < 0.1) continue;
+            var vx = 16 + 12 + col * 38 + between(-3, 3);
+            var vy = p[0] + 12 + row * 42 + between(-3, 3);
+            var vw = between(15, 20), vh = between(11, 14);
+            add(rotate(rect(vx, vy, vw, vh), between(-7, 7)), villa);
+            if (rand() < 0.35) add(rotate(rect(vx + vw + 3, vy + 6, 7, 6), between(-7, 7)), {
+              type: "Garage", years: [1955, 1985], energy: { E: 1, F: 1 }, value: { none: 1 }
+            });
+          }
+        }
+      });
+
+      // Mittlinjer på huvudgatorna, ritas ovanpå gatorna men under husen
+      centerLine("M337 0 V476");
+      centerLine("M344 207 H720");
+      centerLine("M0 257 H337");
+      centerLine("M0 476 C 150 468, 290 486, 450 478 S 660 470, 720 478");
+
+      // Ett par utvalda byggnadsminnen i innerstaden
+      var stone = buildings.filter(function (b) { return b.type === "Flerbostadshus i sten"; });
+      [3, 41].forEach(function (k) { if (stone[k]) stone[k].value = "bm"; });
+
+      // Rita byggnaderna
+      var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      var originX = 160, originY = 140;
+      var nodes = [];
+
+      buildings.forEach(function (b) {
+        var g = el("g", { "class": "b" + (reduce ? "" : " pending") }, layer);
+        g.dataset.energy = b.energy || "";
+        g.dataset.value = b.value;
+        g.dataset.type = b.type;
+        g.dataset.year = b.year;
+
+        if (b.value === "new") {
+          el("polygon", {
+            points: toPoints(b.pts), "class": "body", fill: "#FFFFFF",
+            stroke: "#7C8792", "stroke-width": 1.3, "stroke-dasharray": "4 3"
+          }, g);
+        } else {
+          el("polygon", {
+            points: toPoints(b.pts), "class": "body", fill: "var(--e-" + b.energy + ")",
+            stroke: "#FFFFFF", "stroke-width": 1.2, "stroke-linejoin": "round"
+          }, g);
+        }
+        if (VALUE_PATTERN[b.value]) {
+          el("polygon", { points: toPoints(b.pts), fill: VALUE_PATTERN[b.value], "pointer-events": "none" }, g);
+        }
+
+        var mx = 0, my = 0;
+        b.pts.forEach(function (p) { mx += p[0]; my += p[1]; });
+        mx /= b.pts.length; my /= b.pts.length;
+        g.dataset.delay = Math.round(Math.hypot(mx - originX, my - originY) * 1.6);
+        nodes.push(g);
+      });
+
+      if (!reduce) {
+        requestAnimationFrame(function () {
+          nodes.forEach(function (n) {
+            setTimeout(function () { n.classList.remove("pending"); }, +n.dataset.delay);
+          });
+        });
+      }
+
+      // Knappar för energiklasser
+      var energyKeys = document.getElementById("energy-keys");
+      ENERGY.forEach(function (e) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "key energy";
+        btn.textContent = e;
+        btn.style.background = "var(--e-" + e + ")";
+        btn.dataset.filter = "energy";
+        btn.dataset.key = e;
+        btn.setAttribute("aria-pressed", "false");
+        btn.setAttribute("aria-label", "Energiklass " + e);
+        energyKeys.appendChild(btn);
+      });
+
+      // Markera en klass
+      var locked = null;
+      function highlight(filter) {
+        nodes.forEach(function (n) {
+          var match = !filter || n.dataset[filter.type] === filter.key;
+          n.classList.toggle("dim", !match);
+        });
+      }
+      var keys = Array.prototype.slice.call(document.querySelectorAll(".key"));
+      keys.forEach(function (k) {
+        var f = { type: k.dataset.filter, key: k.dataset.key };
+        k.addEventListener("mouseenter", function () { if (!locked) highlight(f); });
+        k.addEventListener("mouseleave", function () { if (!locked) highlight(null); });
+        k.addEventListener("click", function () {
+          var same = locked && locked.type === f.type && locked.key === f.key;
+          locked = same ? null : f;
+          keys.forEach(function (o) { o.setAttribute("aria-pressed", String(!same && o === k)); });
+          highlight(locked);
+        });
+      });
+
+      // Detaljruta
+      function showTip(g, clientX, clientY) {
+        var d = g.dataset;
+        var html = "<strong>" + d.type + "</strong>";
+        if (d.value === "new") {
+          html += "Under uppbyggnad, klart " + d.year;
+        } else {
+          html += "Byggt " + d.year + "<br>";
+          html += '<span class="tip-energy"><i style="background:var(--e-' + d.energy + ')"></i>Energiklass ' + d.energy + "</span><br>";
+          html += VALUE_LABEL[d.value];
+        }
+        tip.innerHTML = html;
+        var box = figure.getBoundingClientRect();
+        var x = clientX - box.left + 14, y = clientY - box.top + 14;
+        var tw = tip.offsetWidth || 160, th = tip.offsetHeight || 80;
+        if (x + tw > box.width) x = clientX - box.left - tw - 14;
+        if (y + th > box.height) y = clientY - box.top - th - 14;
+        tip.style.left = Math.max(0, x) + "px";
+        tip.style.top = Math.max(0, y) + "px";
+        tip.classList.add("show");
+      }
+      function hideTip() { tip.classList.remove("show"); }
+
+      layer.addEventListener("pointermove", function (ev) {
+        var g = ev.target.closest(".b");
+        if (g) showTip(g, ev.clientX, ev.clientY); else hideTip();
+      });
+      svg.addEventListener("pointerleave", hideTip);
+      svg.addEventListener("click", function (ev) {
+        var g = ev.target.closest && ev.target.closest(".b");
+        if (!g) hideTip();
+      });
+    })();
+  </script>
+</body>
+</html>
