@@ -296,6 +296,52 @@
       border-radius: 999px;
     }
 
+    /* Labb */
+    .lab { display: grid; gap: 16px; max-width: 36em; }
+    .row .lab p { margin: 0; }
+    .demo {
+      display: grid;
+      gap: 14px;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .demo img {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 8 / 5;
+      object-fit: cover;
+      background: var(--road);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      transition: border-color 160ms ease;
+    }
+    .demo:hover img { border-color: #B9C3CB; }
+    .demo h3 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      line-height: 1.25;
+    }
+    .demo h3 span { display: inline-block; transition: transform 160ms ease; }
+    .demo:hover h3 span { transform: translateX(3px); }
+    @media (prefers-reduced-motion: reduce) {
+      .demo img, .demo h3 span { transition: none; }
+    }
+    .row .lab .lab-meta { font-size: 0.9375rem; }
+    .lab-meta a { text-underline-offset: 3px; }
+    .row .live {
+      justify-self: end;
+      white-space: nowrap;
+      font-size: 0.875rem;
+      color: var(--ink);
+      padding: 4px 12px;
+      border: 1.5px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+    }
+
     .site-footer {
       padding: 32px 0 48px;
       font-size: 0.875rem;
@@ -312,7 +358,7 @@
     @media (max-width: 900px) {
       .hero .wrap { grid-template-columns: 1fr; }
       .row { grid-template-columns: 1fr; }
-      .row .soon { justify-self: start; }
+      .row .soon, .row .live { justify-self: start; }
     }
     @media (max-width: 560px) {
       .site-header .wrap { height: auto; padding-top: 12px; padding-bottom: 12px; flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -390,7 +436,7 @@
       </div>
     </section>
 
-    <section class="sections" aria-label="Innehåll som kommer">
+    <section class="sections" aria-label="Innehåll">
       <div class="wrap">
         <article class="row" id="projekt">
           <h2>Referensprojekt</h2>
@@ -404,8 +450,17 @@
         </article>
         <article class="row" id="labb">
           <h2>Labb</h2>
-          <p>Interaktiva kartor och verktyg på labs.byggnadsbestandsanalys.se.</p>
-          <span class="soon">Kommer snart</span>
+          <div class="lab">
+            <p>Interaktiva kartor och verktyg.</p>
+            <a class="demo" href="labb/byggnadsmaterial/?lang=sv">
+              <!-- Tom alt: rubriken namnger länken. Bilden: Änggården i Göteborg, trä i orange och puts i rosa. -->
+              <img src="labb/byggnadsmaterial.webp" width="1600" height="1000" loading="lazy" decoding="async" alt="">
+              <h3>Byggnadsmaterial i OpenStreetMap <span aria-hidden="true">→</span></h3>
+            </a>
+            <p>Vad är husen byggda av? Kartan visar de drygt 150&nbsp;000 byggnader i Sverige, Norge, Danmark och Frankrike där någon har angett fasad, tak eller stomme i OpenStreetMap. Klicka på en byggnad för att se den i gatuvy.</p>
+            <p class="lab-meta">Ett tidigt test inom <a href="https://www.ri.se/en/urban-development/project/building-stock-models-for-circular-urban-development">BEAM&nbsp;ME&nbsp;UP!</a>, ett DUT-projekt 2026–2028 om byggnadsbeståndsmodeller för cirkulär stadsutveckling. Bara en kvarts procent av byggnaderna har en materialtagg, så kartan visar vad som är kartlagt – inte hela beståndet.</p>
+          </div>
+          <span class="live">Tidigt test</span>
         </article>
       </div>
     </section>
