@@ -139,6 +139,21 @@
       font-size: 1.1875rem;
       color: var(--muted);
     }
+    .news { margin: 28px 0 0; }
+    .news a {
+      display: inline-block;
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 0.9375rem;
+      line-height: 1.4;
+      text-decoration: none;
+      transition: border-color 160ms ease;
+    }
+    .news a:hover { border-color: #B9C3CB; }
+    .news b { font-weight: 600; }
+    .news span { color: var(--muted); }
 
     /* Kvartersplan */
     .plan {
@@ -389,6 +404,7 @@
           <p class="status">Sajten är under ombyggnad</p>
           <h1>Vi bygger om.</h1>
           <p class="lede">Vi analyserar hela byggnadsbestånd: ålder, energiprestanda och kulturvärden. Snart samlar vi projekt, artiklar och verktyg här.</p>
+          <p class="news"><a href="labb/byggnadsmaterial/?lang=sv"><span>Nytt i labbet:</span> <b>Byggnadsmaterial i OpenStreetMap</b> <span aria-hidden="true">→</span></a></p>
         </div>
 
         <figure class="plan" id="plan-figure">
