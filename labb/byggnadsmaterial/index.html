@@ -215,16 +215,16 @@ const I18N = {
     svHint: "Klicka på en byggnad för detaljer och gatuvy, eller på en gata för att ställa dig där.",
     svOpen: "Öppna i Google Maps ↗", svClose: "Stäng", svResize: "Ändra storlek på karta och gatuvy", svShow: "Visa i gatuvy",
     svZoom: "Zooma in närmare för att välja en plats på gatan.",
-    svNoStreet: (m) => `Ingen gata inom ${m} m. Gatubilder finns bara längs gator – klicka på en gata.`,
+    svNoStreet: (m) => `Ingen gata med gatubilder inom ${m} m (gångvägar, parkvägar och namnlösa småvägar räknas inte). Klicka på en gata.`,
     svNoBuilding: (m) => `Ingen byggnad med materialtagg inom ${m} m från gatan – klicka närmare en färgad byggnad.`,
-    svNoViewpoint: (m) => `Byggnaden syns inte från någon gata inom ${m} m, så det finns ingen gatuvy att visa.`,
-    svHidden: "Ingen byggnad med materialtagg syns härifrån – andra hus skymmer. Prova en annan plats på gatan.",
+    svNoViewpoint: (m) => `Byggnaden syns inte från någon gata inom ${m} m – hus eller skog skymmer, eller så finns bara parkvägar. Ingen gatuvy att visa.`,
+    svHidden: "Ingen byggnad med materialtagg syns härifrån – hus eller skog skymmer. Prova en annan plats på gatan.",
     svNotFromHere: "Byggnaden syns inte från kamerans plats. Välj ”Visa i gatuvy” i rutan för att flytta kameran.",
-    svNote: (m, moved) => `${m} m bort${moved ? ` · kameran flyttad ${moved} m till närmaste gata` : ""} · konen visar startriktningen. Klicka på en annan byggnad för att rikta om.`,
+    svNote: (m, moved) => `${m} m bort${moved ? ` · kameran flyttad ${moved} m till gatan` : ""}. Ringen visar att platsen är ungefärlig: Google visar närmaste panorama. Konen visar startriktningen; klicka på en annan byggnad för att rikta om.`,
     footer: (fetched) => `Våningsarea = byggnadsarea × antal våningar (<code>building:levels</code>); saknas uppgiften antas 2 våningar.
       Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bidragsgivare via Overpass API, hämtad ${fetched}.
       Taggningen är ofullständig – siffrorna visar vad som är kartlagt, inte hela beståndet.
-      Gatuvyn är Google Street View: kameran ställs på närmaste gata och Google visar närmaste panorama därifrån.`,
+      Gatuvyn är Google Street View: kameran ställs på en gata som ser byggnaden förbi hus och skog, och Google visar närmaste panorama därifrån – platsen är ungefärlig.`,
     noData: "<h1>Ingen data hittades</h1><p class=\"sub\">Kör <code>uv run python osm_materials.py --web</code> för att skapa <code>data/web/</code> och ladda om sidan.</p>",
     noMap: "Kartan kräver internetanslutning (MapLibre laddas från CDN).",
     materials: {
@@ -269,16 +269,16 @@ const I18N = {
     svHint: "Click a building for details and street view, or click a street to stand there.",
     svOpen: "Open in Google Maps ↗", svClose: "Close", svResize: "Resize map and street view", svShow: "Show in street view",
     svZoom: "Zoom in closer to pick a spot on the street.",
-    svNoStreet: (m) => `No street within ${m} m. Street view only exists along streets – click a street.`,
+    svNoStreet: (m) => `No street with street view within ${m} m (footpaths, park roads and unnamed back roads do not count). Click a street.`,
     svNoBuilding: (m) => `No building with a material tag within ${m} m of the street – click closer to a coloured building.`,
-    svNoViewpoint: (m) => `The building cannot be seen from any street within ${m} m, so there is no street view to show.`,
-    svHidden: "No building with a material tag can be seen from here – other buildings are in the way. Try another spot on the street.",
+    svNoViewpoint: (m) => `The building cannot be seen from any street within ${m} m – buildings or forest are in the way, or only park roads are near. No street view to show.`,
+    svHidden: "No building with a material tag can be seen from here – buildings or forest are in the way. Try another spot on the street.",
     svNotFromHere: "The building cannot be seen from the camera. Choose “Show in street view” in the popup to move the camera.",
-    svNote: (m, moved) => `${m} m away${moved ? ` · camera moved ${moved} m to the nearest street` : ""} · the cone shows the initial direction. Click another building to re-aim.`,
+    svNote: (m, moved) => `${m} m away${moved ? ` · camera moved ${moved} m to the street` : ""}. The ring marks an approximate spot: Google shows the nearest panorama. The cone shows the initial direction; click another building to re-aim.`,
     footer: (fetched) => `Floor area = footprint × number of levels (<code>building:levels</code>); 2 levels are assumed when the tag is missing.
       Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors via the Overpass API, fetched ${fetched}.
       Tagging is incomplete – the figures show what has been mapped, not the whole building stock.
-      Street view is Google Street View: the camera is placed on the nearest street and Google shows the nearest panorama from there.`,
+      Street view is Google Street View: the camera stands on a street that sees the building past buildings and forest, and Google shows the nearest panorama from there – the spot is approximate.`,
     noData: "<h1>No data found</h1><p class=\"sub\">Run <code>uv run python osm_materials.py --web</code> to create <code>data/web/</code>, then reload.</p>",
     noMap: "The map needs an internet connection (MapLibre is loaded from a CDN).",
     materials: {
@@ -782,59 +782,126 @@ function* along(line, step) {
 }
 
 // ---- street view ------------------------------------------------------------------------------
-// Google's keyless embed shows the panorama nearest the point it is given, and panoramas are taken along
-// streets. So the camera always stands on a street of the base map, at a spot from which the building can
-// be seen: other buildings (with their heights) are checked along each line of sight. Where no street
-// sees the building, no image is shown, rather than a panorama of something else.
+// Google's keyless embed shows the panorama nearest the point it is given and cannot say where that is.
+// So the dashboard decides where the camera stands, from the base map already in the browser: on a street
+// Google's car is likely to have driven (not a footpath, an unnamed service road or a road inside a park),
+// at a spot from which the facade can be seen past other buildings (with their heights) and forest. Where
+// no street sees the building, no image is shown, rather than a panorama of something else. The camera is
+// drawn with a ring, since Google may still show a panorama a little way off.
 const SV_MIN_ZOOM = 14; // the base map has every street and building from zoom 14
 const SV_SNAP_M = 30; // a click this close to a street stands on it
 const SV_VIEWPOINT_M = 60; // "Show in street view" looks for a street this close to the building
 const SV_RANGE_M = 150; // farthest building a street click aims at; beyond this it is too small to see
 const SV_FOV = 90; // Google's embedded viewer opens at roughly this horizontal field of view
+const SV_SPREAD_M = 15; // radius of the camera ring: Google's panorama is usually this close to the spot
 const CAMERA_M = 2.5; // height of a Street View camera
+const FOREST_M = 8; // a belt of forest deeper than this hides the facade
+const FOREST_CELL_M = 2.5; // forest is rasterised at this resolution for the line-of-sight checks
 const SNAP_MS = 450; // camera slide from the clicked point to the street
+// Areas whose roads Google's car rarely drives: OpenMapTiles landcover subclasses and landuse classes.
+const OFF_ROAD = new Set(["park", "garden", "golf_course", "recreation_ground", "allotments", "cemetery", "zoo", "theme_park"]);
+const CAMPUS = new Set(["school", "university", "college", "kindergarten", "hospital"]);
 const sv = { pos: null, target: null, heading: 0, dist: 0, moved: 0 };
 let svSeq = 0; // bumped by every street-view request and by closing, so a request still waiting gives up
 
 /**
- * Extra metres added to a street's distance, so a nearby main street beats a driveway; null = no Street View.
- * Classes are the OpenMapTiles transportation layer of the OpenFreeMap base map.
+ * Extra metres added to a street's distance, so a nearby main street beats a back road; null = no Street View.
+ * Classes are the OpenMapTiles transportation layer of the OpenFreeMap base map; named = it has a street name.
  */
-function streetPenalty(p) {
+function streetPenalty(p, named = true) {
   if (p.brunnel === "tunnel" || p.indoor === 1) return null;
   if (p.class === "path") return p.subclass === "pedestrian" ? 4 : null;
-  if (p.class === "service") return p.service === "driveway" || p.service === "parking_aisle" ? 12 : 6;
-  return { motorway: 0, trunk: 0, primary: 0, secondary: 0, tertiary: 0, minor: 0, busway: 0, track: 15 }[p.class] ?? null;
+  // Unnamed service roads are driveways, car parks and park roads, which Google's car rarely drives.
+  if (p.class === "service") return named && p.service !== "driveway" && p.service !== "parking_aisle" ? 8 : null;
+  const base = { motorway: 0, trunk: 0, primary: 0, secondary: 0, tertiary: 0, minor: 0, busway: 0, track: 15 }[p.class];
+  return base === undefined ? null : base + (named || p.class !== "minor" ? 0 : 10);
 }
 
-/** Streets (with penalty) and buildings (with height) of the loaded base-map tiles within r metres of origin. */
+/** Lines or rings (parts) of a base-map layer within box, in metres around origin, with keep()'s value. */
+function nearby(layer, origin, box, keep, parts = rings) {
+  const out = [];
+  for (const f of map.querySourceFeatures("openmaptiles", { sourceLayer: layer })) {
+    const value = keep(f.properties);
+    if (value === undefined) continue;
+    for (const part of parts(f.geometry)) {
+      const m = part.map((c) => offsetM(origin, c));
+      const bbox = bboxOf(m);
+      if (overlaps(bbox, box)) out.push({ m, bbox, value });
+    }
+  }
+  return out;
+}
+
+/** Forest polygons (holes are clearings) rasterised over [-r, r]², in metres around origin. */
+function forestGrid(origin, r) {
+  const n = Math.ceil((2 * r) / FOREST_CELL_M);
+  const cells = new Uint8Array(n * n);
+  const cell = (v) => Math.floor((v + r) / FOREST_CELL_M);
+  let any = false;
+  for (const f of map.querySourceFeatures("openmaptiles", { sourceLayer: "landcover" })) {
+    if (f.properties.class !== "wood") continue;
+    const polygons = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.type === "MultiPolygon" ? f.geometry.coordinates : [];
+    for (const [outer, ...holes] of polygons.map((p) => p.map((ring) => ring.map((c) => offsetM(origin, c))))) {
+      const [w, s, e, nn] = bboxOf(outer);
+      for (let j = Math.max(0, cell(s)); j <= Math.min(n - 1, cell(nn)); j++) {
+        for (let i = Math.max(0, cell(w)); i <= Math.min(n - 1, cell(e)); i++) {
+          const c = [(i + 0.5) * FOREST_CELL_M - r, (j + 0.5) * FOREST_CELL_M - r];
+          if (!cells[j * n + i] && inRing(c, outer) && !holes.some((h) => inRing(c, h))) cells[j * n + i] = any = 1;
+        }
+      }
+    }
+  }
+  return any ? { r, n, cells } : null;
+}
+const inForest = (g, [x, y]) => {
+  const [i, j] = [x, y].map((v) => Math.floor((v + g.r) / FOREST_CELL_M));
+  return i >= 0 && j >= 0 && i < g.n && j < g.n && g.cells[j * g.n + i] === 1;
+};
+/** Metres of forest along p-q, sampled every 2 m, leaving out 5 m at the camera and 3 m at the facade. */
+function forestDepth(p, q, g) {
+  const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  let depth = 0;
+  for (let s = 5; s < len - 3; s += 2) if (inForest(g, [p[0] + ((q[0] - p[0]) * s) / len, p[1] + ((q[1] - p[1]) * s) / len])) depth += 2;
+  return depth;
+}
+
+/** What the street-view search needs from the loaded base-map tiles within r metres of origin (in metres). */
 function surroundings(origin, r) {
   const box = [-r, -r, r, r];
-  const streets = [];
-  for (const f of map.querySourceFeatures("openmaptiles", { sourceLayer: "transportation" })) {
-    const penalty = streetPenalty(f.properties);
-    if (penalty === null) continue;
-    for (const line of lines(f.geometry)) {
-      const m = line.map((c) => offsetM(origin, c));
-      if (overlaps(bboxOf(m), box)) streets.push({ penalty, line: m });
-    }
+  const names = nearby("transportation_name", origin, box, () => true, lines);
+  // A street counts as named when a name label runs along the middle of it.
+  const named = (line) => {
+    const k = Math.max(1, Math.floor(line.length / 2));
+    const p = mean([line[k - 1], line[Math.min(k, line.length - 1)]]);
+    return names.some(({ m, bbox }) => overlaps(bbox, [p[0] - 4, p[1] - 4, p[0] + 4, p[1] + 4]) && ringDist(p, m) < 4);
+  };
+  const streets = nearby("transportation", origin, box, (p) => p, lines)
+    .map(({ m, value }) => ({ line: m, penalty: streetPenalty(value, named(m)) }))
+    .filter((s) => s.penalty !== null);
+  const walls = nearby("building", origin, box, (p) => p.render_height ?? 10).map(({ m, bbox, value }) => ({ ring: m, bbox, height: value }));
+  const areas = [
+    ...nearby("landcover", origin, box, (p) => (OFF_ROAD.has(p.subclass) ? "off" : undefined)),
+    ...nearby("landuse", origin, box, (p) => (OFF_ROAD.has(p.class) ? "off" : CAMPUS.has(p.class) ? "campus" : undefined)),
+  ];
+  return { streets, walls, areas, forest: forestGrid(origin, r) };
+}
+
+/** Extra metres for standing at street point p: 0 on an ordinary street, 15 on a campus, null in a park. */
+function standPenalty(p, areas) {
+  let extra = 0;
+  for (const { m, bbox, value } of areas) {
+    if (!overlaps(bbox, [p[0], p[1], p[0], p[1]]) || !inRing(p, m)) continue;
+    if (value === "off") return null;
+    extra = 15;
   }
-  const walls = [];
-  for (const f of map.querySourceFeatures("openmaptiles", { sourceLayer: "building" })) {
-    for (const ring of rings(f.geometry)) {
-      const m = ring.map((c) => offsetM(origin, c));
-      const bbox = bboxOf(m);
-      if (overlaps(bbox, box)) walls.push({ ring: m, bbox, height: f.properties.render_height ?? 10 });
-    }
-  }
-  return { streets, walls };
+  return extra;
 }
 
 /** Building height in metres from its tags: height, else levels × 3 m. */
 const heightOf = (p) => (parseFloat(p.height) > 0 ? parseFloat(p.height) : p.levels * 3);
 
 /** Building f as a sight target in metres around origin: outline, centre, facade samples and its obstacles. */
-function sightTarget(f, origin, walls) {
+function sightTarget(f, origin, { walls, forest }) {
   const ring = outline(f).map((c) => offsetM(origin, c));
   const centre = offsetM(origin, centroid(f));
   const perimeter = ring.slice(1).reduce((s, v, i) => s + Math.hypot(v[0] - ring[i][0], v[1] - ring[i][1]), 0);
@@ -842,10 +909,10 @@ function sightTarget(f, origin, walls) {
   // The base map has this building too (and the whole building when f is a part of it): not obstacles.
   const obstacles = walls.filter((w) => !inRing(centre, w.ring) && !inRing(mean(w.ring), ring));
   // Aim the line of sight at the lower facade (where the material is), not at a spire or roof top.
-  return { ring, centre, samples, obstacles, sight: Math.min(Math.max(CAMERA_M + 1, 0.5 * heightOf(f.properties)), 10) };
+  return { ring, centre, samples, obstacles, forest, sight: Math.min(Math.max(CAMERA_M + 1, 0.5 * heightOf(f.properties)), 10) };
 }
 
-/** The facade samples a camera at p can see: not round the back of the building, not behind a taller one. */
+/** The facade samples a camera at p can see: not round the back, not behind a taller building or forest. */
 function seenFrom(p, target) {
   const seen = [];
   for (const q of target.samples) {
@@ -861,7 +928,7 @@ function seenFrom(p, target) {
       // The line of sight climbs from the camera to the facade, so a lower building in front lets it pass.
       return t !== null && w.height > CAMERA_M + (target.sight - CAMERA_M) * t * k;
     });
-    if (!blocked) seen.push(q);
+    if (!blocked && !(target.forest && forestDepth(p, e, target.forest) > FOREST_M)) seen.push(q);
   }
   return seen;
 }
@@ -876,9 +943,9 @@ function aim(p, seen, centre) {
 }
 
 /** The first of the buildings fs (nearest first) a camera at p, in metres around origin, sees: { f, view } or null. */
-function firstSeen(p, fs, origin, walls) {
+function firstSeen(p, fs, origin, ctx) {
   for (const f of fs) {
-    const target = sightTarget(f, origin, walls);
+    const target = sightTarget(f, origin, ctx);
     if (inRing(p, target.ring)) continue; // a street mapped through the building: no meaningful view
     const seen = seenFrom(p, target);
     if (seen.length) return { f, view: aim(p, seen, target.centre) };
@@ -890,20 +957,27 @@ function firstSeen(p, fs, origin, walls) {
 function viewpointFor(f) {
   const origin = centroid(f);
   const size = Math.max(...outline(f).map((c) => distM(origin, c)));
-  const { streets, walls } = surroundings(origin, size + SV_VIEWPOINT_M + 30);
-  const target = sightTarget(f, origin, walls);
+  const ctx = surroundings(origin, size + SV_VIEWPOINT_M + 30);
+  const target = sightTarget(f, origin, ctx);
   let best = null;
-  for (const { penalty, line } of streets) {
-    for (const p of along(line, 5)) {
+  for (const { penalty, line } of ctx.streets) {
+    const pts = [...along(line, 5)];
+    pts.forEach((p, i) => {
       const d = ringDist(p, target.ring);
-      if (d > SV_VIEWPOINT_M || inRing(p, target.ring)) continue;
+      if (d > SV_VIEWPOINT_M || inRing(p, target.ring)) return;
+      const stand = standPenalty(p, ctx.areas);
+      if (stand === null) return;
       const seen = seenFrom(p, target);
-      if (!seen.length) continue;
+      if (!seen.length) return;
       const view = aim(p, seen, target.centre);
+      // Google may show a panorama about 10 m along the street: prefer spots whose neighbours see it too.
+      const blind = [pts[i - 2], pts[i + 2]].filter((q) => q && !seenFrom(q, target).length).length;
       // Fill most of the view, see much of the building, do not stand against its wall, prefer main streets.
-      const score = Math.min(view.span, 70) - Math.max(0, view.span - 100) / 2 + (20 * seen.length) / target.samples.length - 4 * Math.max(0, 6 - d) - penalty;
+      const score =
+        Math.min(view.span, 70) - Math.max(0, view.span - 100) / 2 + (20 * seen.length) / target.samples.length -
+        4 * Math.max(0, 6 - d) - penalty - stand - 15 * blind;
       if (!best || score > best.score) best = { score, p, view };
-    }
+    });
   }
   return best && { pos: fromOffset(origin, ...best.p), ...best.view };
 }
@@ -917,12 +991,14 @@ async function streetClick(click) {
   const seq = ++svSeq;
   await tilesLoaded();
   if (seq !== svSeq) return;
-  const { streets, walls } = surroundings(click, SV_SNAP_M + SV_RANGE_M + 30);
+  const ctx = surroundings(click, SV_SNAP_M + SV_RANGE_M + 30);
   let street = null;
-  for (const { penalty, line } of streets) {
+  for (const { penalty, line } of ctx.streets) {
     for (let i = 1; i < line.length; i++) {
       const [x, y, d] = closestOnSegment(line[i - 1], line[i]);
-      if (d <= SV_SNAP_M && (!street || d + penalty < street.score)) street = { score: d + penalty, p: [x, y] };
+      if (d > SV_SNAP_M || (street && d + penalty >= street.score)) continue;
+      const stand = standPenalty([x, y], ctx.areas);
+      if (stand !== null && (!street || d + penalty + stand < street.score)) street = { score: d + penalty + stand, p: [x, y] };
     }
   }
   if (!street) return mapHint(T.svNoStreet(SV_SNAP_M));
@@ -939,7 +1015,7 @@ async function streetClick(click) {
     }
   }
   candidates.sort((a, b) => a[0] - b[0]);
-  const hit = firstSeen(street.p, candidates.slice(0, 12).map(([, f]) => f), click, walls);
+  const hit = firstSeen(street.p, candidates.slice(0, 12).map(([, f]) => f), click, ctx);
   if (hit) return showStreetView(pos, hit.f, hit.view, { from: click });
   mapHint(candidates.length ? T.svHidden : T.svNoBuilding(SV_RANGE_M));
 }
@@ -965,7 +1041,7 @@ async function viewBuilding(f) {
 function reaim(f) {
   if (f.geometry.type === "Point" || distM(sv.pos, centroid(f)) > SV_RANGE_M + 100) return;
   svSeq += 1;
-  const hit = firstSeen([0, 0], [f], sv.pos, surroundings(sv.pos, SV_RANGE_M + 130).walls);
+  const hit = firstSeen([0, 0], [f], sv.pos, surroundings(sv.pos, SV_RANGE_M + 130));
   if (!hit) return mapHint(T.svNotFromHere);
   showStreetView(sv.pos, f, hit.view, { moved: sv.moved });
 }
@@ -1010,13 +1086,18 @@ function showStreetView(pos, target, { heading, reach }, { from = null, moved = 
   showPoints([pos, centroid(target), ...(from ? [from] : [])]);
 }
 
-/** View cone and camera at pos; with from, animates the camera there and briefly marks the clicked point. */
+/**
+ * View cone and camera at pos, with a ring for how far off Google's panorama may be; with from, animates the
+ * camera there and briefly marks the clicked point.
+ */
 function drawCamera(pos, heading, reach, from) {
   cancelAnimationFrame(drawCamera.raf);
   clearTimeout(drawCamera.timer);
   const draw = (at, mark) => {
     const arc = Array.from({ length: 13 }, (_, i) => destination(at, heading - SV_FOV / 2 + (i * SV_FOV) / 12, reach));
+    const spread = Array.from({ length: 33 }, (_, i) => destination(at, (i * 360) / 32, SV_SPREAD_M));
     const features = [
+      { type: "Feature", properties: { kind: "spread" }, geometry: { type: "Polygon", coordinates: [spread] } },
       { type: "Feature", properties: { kind: "cone" }, geometry: { type: "Polygon", coordinates: [[at, ...arc, at]] } },
       { type: "Feature", properties: { kind: "camera" }, geometry: { type: "Point", coordinates: at } },
     ];
@@ -1135,6 +1216,8 @@ function initMap() {
       id: "click", type: "circle", source: "cone", filter: kind("click"),
       paint: { "circle-radius": 5, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": ink, "circle-stroke-width": 1.5 },
     });
+    map.addLayer({ id: "spread", type: "fill", source: "cone", filter: kind("spread"), paint: { "fill-color": ink, "fill-opacity": 0.08 } });
+    map.addLayer({ id: "spread-line", type: "line", source: "cone", filter: kind("spread"), paint: { "line-color": ink, "line-width": 1, "line-dasharray": [1, 2] } });
     map.addLayer({ id: "cone-fill", type: "fill", source: "cone", filter: kind("cone"), paint: { "fill-color": ink, "fill-opacity": 0.18 } });
     map.addLayer({ id: "cone-line", type: "line", source: "cone", filter: kind("cone"), paint: { "line-color": ink, "line-width": 1.5 } });
     map.addLayer({
