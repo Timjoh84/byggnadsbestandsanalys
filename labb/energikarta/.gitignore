@@ -1,0 +1,12 @@
+# Energikartan: only the built page belongs here. The data stays in Dropbox and is read through
+# the link in the configuration file the user loads in the browser; tokens and keys are in that
+# file too. Never commit data, configuration or keys to this public site.
+*.geojson
+*.pmtiles
+*.json
+*.csv
+*.xlsx
+*.gpkg
+*.sqlite
+*.parquet
+.env*
