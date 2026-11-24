@@ -1,0 +1,1237 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inventering av kulturvärden med hjälp av AI · Byggnadsbeståndsanalys</title>
+  <meta name="description" content="AI läser gatubilder och föreslår uppgifter om byggnaders exteriör. Antikvarier granskar och bedömer värdet. Forskningsprojekt 2026–2029 med RISE, Göteborgs stadsmuseum och Riksantikvarieämbetet.">
+  <link rel="canonical" href="https://byggnadsbestandsanalys.se/kulturvarden/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="sv_SE">
+  <meta property="og:url" content="https://byggnadsbestandsanalys.se/kulturvarden/">
+  <meta property="og:title" content="Inventering av kulturvärden med hjälp av AI">
+  <meta property="og:description" content="AI läser gatubilder och föreslår uppgifter om byggnaders exteriör. Antikvarier granskar och bedömer värdet. Forskningsprojekt 2026–2029 med RISE, Göteborgs stadsmuseum och Riksantikvarieämbetet.">
+  <meta property="og:image" content="https://byggnadsbestandsanalys.se/kulturvarden/bilder/og.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* Grunden är densamma som på startsidan (../index.html): färger, typsnitt, sidhuvud, rader. */
+    :root {
+      color-scheme: light;
+      --paper: #F7F8F8;
+      --surface: #FFFFFF;
+      --ink: #1C2127;
+      --muted: #5E6772;
+      --line: #E1E5E8;
+      --accent: #3E6A8C;
+
+      /* Tillägg för den här sidan */
+      --bar: #6F93B0;        /* staplar för enskilda fält */
+      --track: #E8ECEF;      /* stapelspår */
+      --warm: #A8442F;       /* det som saknas eller skiljer sig: 77 % och rader som inte stämmer */
+      --warm-bg: #FBEDEA;
+      --k-guld: #D2AE4E;     /* stadsmuseets klasser, samma färger som i kartbilden */
+      --k-silver: #9AA9B5;
+      --k-brons: #C98A5E;
+      --k-utan: #7C8792;
+
+      --gutter: clamp(16px, 5vw, 64px);
+      --max: 1180px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 1.0625rem;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: inherit; text-underline-offset: 3px; }
+    a:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 var(--gutter);
+    }
+
+    .sr {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .skip {
+      position: absolute;
+      left: var(--gutter);
+      top: -60px;
+      z-index: 20;
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .skip:focus { top: 8px; }
+
+    /* Sidhuvud */
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(247, 248, 248, 0.85);
+      backdrop-filter: saturate(160%) blur(12px);
+      -webkit-backdrop-filter: saturate(160%) blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+    .site-header .wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      height: 56px;
+    }
+    .crumb {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 0;
+      white-space: nowrap;
+    }
+    .wordmark {
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+    }
+    .crumb span { font-size: 0.9375rem; color: var(--muted); }
+    .site-nav ul {
+      display: flex;
+      gap: clamp(14px, 2.4vw, 28px);
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .site-nav a {
+      font-size: 0.9375rem;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .site-nav a:hover { color: var(--ink); }
+
+    /* Hero */
+    .hero .wrap {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      align-items: start;
+      gap: clamp(32px, 5vw, 72px);
+      padding-top: clamp(40px, 6vw, 80px);
+      padding-bottom: clamp(32px, 4vw, 48px);
+    }
+    .hero .hero-facts { display: block; padding-top: 0; padding-bottom: 0; }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 28px;
+      font-size: 0.9375rem;
+      color: var(--muted);
+    }
+    .status::before {
+      content: "";
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(2.5rem, 4.2vw, 3.6rem);
+      font-weight: 600;
+      line-height: 1.04;
+      letter-spacing: -0.035em;
+      text-wrap: balance;
+    }
+    .sub {
+      margin: 0 0 24px;
+      font-size: clamp(1.25rem, 2vw, 1.5rem);
+      font-weight: 500;
+      line-height: 1.25;
+      letter-spacing: -0.015em;
+    }
+    .lede {
+      margin: 0;
+      max-width: 30em;
+      font-size: 1.1875rem;
+      color: var(--muted);
+    }
+    .more { margin: 22px 0 0; font-weight: 500; }
+    .more span { display: inline-block; transition: transform 160ms ease; }
+    .more a:hover span { transform: translateX(3px); }
+    @media (prefers-reduced-motion: reduce) { .more span { transition: none; } }
+
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0 40px;
+      margin: 0 0 clamp(40px, 6vw, 72px);
+      font-size: 0.9375rem;
+    }
+    .facts div { padding: 12px 0 0; border-top: 1px solid var(--line); }
+    .facts dt { color: var(--muted); }
+    .facts dd { margin: 2px 0 0; }
+
+    /* Bilder */
+    figure { margin: 0; }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .note {
+      margin: 12px 0 0;
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+    .photo { position: relative; }
+    .pt {
+      display: inline-grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .photo .pt {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 2px #fff;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    caption {
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    caption span {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 400;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+    th { text-align: left; font-weight: 400; }
+    thead th {
+      padding: 0 0 8px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted);
+      vertical-align: bottom;
+    }
+
+    /* Tabeller som jämför fält för fält */
+    .fields { margin-top: 22px; }
+    .fields caption { padding-bottom: 12px; }
+    .fields td, .fields tbody th {
+      padding: 9px 12px 9px 0;
+      border-top: 1px solid var(--line);
+      vertical-align: top;
+    }
+    .fields tbody tr:last-child > * { border-bottom: 1px solid var(--line); }
+    .fields .n { width: 38px; padding-right: 0; }
+    .fields .n .pt { width: 24px; height: 24px; vertical-align: top; }
+    .fields tbody th { width: 30%; font-size: 0.9375rem; color: var(--muted); }
+    .fields .v { font-weight: 500; }
+    .fields .ok { width: 4.6em; padding-right: 0; white-space: nowrap; color: var(--accent); font-weight: 500; }
+    .fields .ok svg { vertical-align: -2px; margin-right: 5px; }
+    .fields .wrong > * { background: var(--warm-bg); }
+    .fields .wrong .v, .fields .wrong .ok { color: var(--warm); }
+    .fields .wrong small {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 400;
+    }
+
+    /* De tre talen */
+    .stats .wrap > div {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0 40px;
+      border-top: 1px solid var(--line);
+    }
+    .stat { padding: 32px 0 40px; }
+    .stat-label {
+      margin: 0 0 6px;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+    .num {
+      margin: 0 0 12px;
+      font-size: clamp(3.5rem, 7vw, 5.5rem);
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat p:last-child {
+      margin: 0;
+      max-width: 22em;
+      color: var(--muted);
+    }
+    .is-warm { color: var(--warm); }
+    .is-accent { color: var(--accent); }
+
+    /* Sektioner: rubrik till vänster, innehåll till höger, tunn linje emellan */
+    .sections { padding-bottom: clamp(64px, 10vw, 128px); }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+      gap: 20px 40px;
+      align-items: start;
+      padding: 44px 0 52px;
+      border-top: 1px solid var(--line);
+      scroll-margin-top: 56px;
+    }
+    .sections > .wrap > :last-child { border-bottom: 1px solid var(--line); }
+    .row-head { position: sticky; top: 84px; }
+    h2 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2.6vw, 2rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      text-wrap: balance;
+    }
+    .body > * { max-width: 38em; }
+    .body > :first-child { margin-top: 0; }
+    .body p { margin: 0 0 1em; }
+    .intro {
+      margin: 0 0 0.9em;
+      font-size: 1.1875rem;
+      font-weight: 500;
+      line-height: 1.4;
+      letter-spacing: -0.01em;
+    }
+    .body h3 {
+      margin: 2em 0 0.5em;
+      font-size: 1.0625rem;
+      font-weight: 600;
+    }
+    .body > ul:not([class]) { margin: 0 0 1em; padding-left: 1.1em; }
+    .body > ul:not([class]) li { margin-bottom: 0.3em; }
+    .body .wide { max-width: none; }
+    .body > :last-child { margin-bottom: 0; }
+
+    /* Metoden: rubriken överst, sedan ett steg per rad med text till vänster och bild till höger */
+    .method {
+      padding: 44px 0 52px;
+      border-top: 1px solid var(--line);
+      scroll-margin-top: 56px;
+    }
+    .method-head {
+      display: grid;
+      grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+      gap: 20px 40px;
+      align-items: start;
+    }
+    .method-head p { max-width: 38em; margin: 0; }
+    .method-head .intro { margin-bottom: 0.9em; }
+    .steps {
+      list-style: none;
+      margin: 40px 0 0;
+      padding: 0;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      gap: 24px clamp(32px, 5vw, 72px);
+      align-items: start;
+      padding: 40px 0;
+      border-top: 1px solid var(--line);
+    }
+    div.step { padding-bottom: 0; }
+    .step-no {
+      display: block;
+      margin: 0 0 8px;
+      font-size: 0.9375rem;
+      font-weight: 400;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+    .step h3 {
+      margin: 0 0 12px;
+      font-size: 1.5rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+    .step-text p { max-width: 30em; margin: 0 0 1em; }
+    .step-text p:last-child { margin-bottom: 0; }
+
+    .shots {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .shots img:first-child { grid-column: 1 / -1; }
+
+    /* Figurer som är byggda i HTML: en regel, ett fält, en jämförelse */
+    .sheet {
+      padding: 22px 24px 24px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .sheet-label {
+      margin: 0 0 8px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .sheet blockquote {
+      margin: 0 0 24px;
+      padding: 0 0 22px;
+      border-bottom: 1px solid var(--line);
+      font-size: 1.0625rem;
+      line-height: 1.5;
+    }
+    .options {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      columns: 2;
+      column-gap: 24px;
+      font-size: 0.9375rem;
+    }
+    .options li {
+      padding: 6px 0;
+      border-top: 1px solid var(--line);
+      break-inside: avoid;
+    }
+    .options .abstain { color: var(--muted); }
+    .sheet .fields { margin-top: 0; }
+    .sheet .fields tbody th { width: 26%; }
+    .sheet .fields thead th { padding-right: 12px; }
+    .sheet .fields tr > :first-child { padding-left: 10px; }
+    .sheet .fields tr > :last-child { padding-right: 10px; }
+
+    /* Diagrammet är en tabell: värdena står i text, staplarna ritas med CSS */
+    .chart {
+      --val: 3.6rem;   /* kolumnen med procenttal */
+      --gap: 12px;
+      margin: 2em 0 0;
+    }
+    .chart caption { padding-bottom: 18px; }
+    .chart tbody th {
+      width: 15.5em;
+      padding: 5px 16px 5px 0;
+      font-size: 0.9375rem;
+      line-height: 1.3;
+    }
+    .chart td { padding: 5px 0; }
+    .chart .total th { font-weight: 600; }
+    .chart .total + tbody tr:first-child > * { padding-top: 21px; }
+    /* Mållinjen vid 90 % av stapelspåret: samma streck i varje cell, så att det blir ett enda rakt streck */
+    .chart td, .chart thead th:last-child { position: relative; }
+    .chart td::after, .chart thead th:last-child::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: calc((100% - var(--val) - var(--gap)) * 0.9);
+      border-left: 1.5px solid var(--ink);
+    }
+    .barline {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) var(--val);
+      align-items: center;
+      gap: var(--gap);
+    }
+    .track {
+      display: block;
+      height: 12px;
+      background: var(--track);
+      border-radius: 2px;
+    }
+    .track i {
+      display: block;
+      width: calc(var(--v) * 1%);
+      height: 100%;
+      background: var(--bar);
+      border-radius: 2px;
+    }
+    .total .track i { background: var(--accent); }
+    .total .strict .track i {
+      background: var(--surface);
+      border: 1.5px solid var(--accent);
+    }
+    .barline b {
+      text-align: right;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+    .chart thead th:last-child { padding-bottom: 12px; }
+    .goal { position: relative; display: block; height: 1.3em; }
+    .goal span {
+      position: absolute;
+      left: 90%;
+      top: 0;
+      padding-left: 8px;
+      color: var(--ink);
+      font-weight: 600;
+      white-space: nowrap;
+      line-height: 1.3;
+    }
+
+    /* Fyra nedslag: bild, vad källorna säger, rubrik, text. Raderna delas mellan korten i samma rad. */
+    .cases {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 32px;
+      margin: 2em 0;
+    }
+    .cases article {
+      display: grid;
+      grid-template-rows: subgrid;
+      grid-row: span 4;
+      margin-bottom: 44px;
+    }
+    .cases figure { aspect-ratio: 4 / 3; }
+    .cases img { height: 100%; object-fit: cover; }
+    .duo {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .cases figure .duo { height: 100%; }
+    .verdict {
+      margin: 12px 0 0;
+      font-size: 0.8125rem;
+      line-height: 1.45;
+    }
+    .verdict div { padding: 5px 0; border-bottom: 1px solid var(--line); }
+    .verdict dt { color: var(--muted); }
+    .verdict dd { margin: 0; font-weight: 500; }
+    .verdict .differs dd { color: var(--warm); }
+    .cases h3 { margin: 18px 0 6px; font-size: 1.1875rem; letter-spacing: -0.01em; }
+    .cases p { margin: 0; }
+    .cases .note { margin-top: 10px; }
+
+    /* Sju vyer ur 3D-modellen */
+    .views {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .views img { height: 100%; object-fit: cover; border-radius: 6px; }
+    .views img:first-child { grid-column: span 2; grid-row: span 2; }
+
+    .plain {
+      margin: 0.6em 0 1.6em;
+      font-size: 0.9375rem;
+    }
+    .plain th, .plain td {
+      padding: 12px 16px 12px 0;
+      border-top: 1px solid var(--line);
+      vertical-align: top;
+    }
+    .plain thead th { padding: 0 16px 8px 0; border: 0; }
+    .plain tbody th { font-weight: 500; }
+    .plain td:last-child { padding-right: 0; color: var(--muted); }
+    .plain tbody tr:last-child > * { border-bottom: 1px solid var(--line); }
+
+    /* Listor med rubrik och förklaring: parter, frågor och svar */
+    .deflist { max-width: none; margin: 1.4em 0; }
+    .deflist div { padding: 16px 0; border-top: 1px solid var(--line); }
+    .deflist div:last-child { border-bottom: 1px solid var(--line); }
+    .deflist dt { font-weight: 600; }
+    .deflist dd { margin: 3px 0 0; max-width: 38em; }
+    .deflist.open { margin: 0; }
+    .deflist.open div:first-child { padding-top: 0; border-top: 0; }
+    .deflist.open div:last-child { padding-bottom: 0; border-bottom: 0; }
+
+    .refs {
+      max-width: none;
+      list-style: none;
+      margin: 0 0 1.6em;
+      padding: 0;
+    }
+    .refs li {
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+    .refs li:last-child { border-bottom: 1px solid var(--line); }
+    .refs b { display: block; max-width: 38em; font-weight: 600; }
+    .refs span { display: block; max-width: 40em; font-size: 0.9375rem; color: var(--muted); }
+
+    /* Karta med teckenförklaring */
+    .map { max-width: none; margin-top: 1.6em; }
+    .map-img { position: relative; }
+    .map-label {
+      position: absolute;
+      left: 37.2%;
+      top: 50.8%;
+      transform: translate(-50%, -50%);
+      padding: 1px 7px;
+      background: var(--surface);
+      border-radius: 4px;
+      font-size: 0.8125rem;
+      white-space: nowrap;
+    }
+    .north {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      padding: 3px 6px 2px;
+      background: var(--surface);
+      border-radius: 4px;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      line-height: 1.1;
+      text-align: center;
+    }
+    .north::before {
+      content: "";
+      display: block;
+      margin: 0 auto 2px;
+      border: 4px solid transparent;
+      border-top: 0;
+      border-bottom: 7px solid var(--ink);
+      width: 0;
+    }
+    .keys {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 18px;
+      list-style: none;
+      margin: 14px 0 0;
+      padding: 0;
+      font-size: 0.875rem;
+    }
+    .keys li { display: inline-flex; align-items: center; gap: 7px; }
+    .keys i {
+      width: 14px;
+      height: 14px;
+      border-radius: 2px;
+      box-shadow: inset 0 0 0 1px var(--k-utan);
+    }
+    .keys .utan {
+      background: repeating-linear-gradient(135deg, var(--k-utan) 0 1.5px, #fff 1.5px 4.5px);
+    }
+
+    /* Logotyper och kontakt */
+    .logos {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 20px 36px;
+      list-style: none;
+      margin: 2em 0 0;
+      padding: 0;
+    }
+    .logos img {
+      display: block;
+      width: auto;
+      filter: grayscale(1);
+      opacity: 0.8;
+    }
+    .people {
+      max-width: none;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 24px 32px;
+      margin: 1.8em 0 0;
+    }
+    .people p { margin: 0; }
+    .people b { display: block; font-weight: 600; }
+    .people span { display: block; color: var(--muted); }
+    .people a { display: inline-block; padding: 6px 0; }
+
+    .site-footer {
+      padding: 32px 0 48px;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+    .site-footer .wrap {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px 24px;
+    }
+    .site-footer p { margin: 0; }
+
+    @media (max-width: 1000px) {
+      .site-header { position: static; }
+      .site-header .wrap { height: auto; padding-top: 12px; padding-bottom: 12px; flex-direction: column; align-items: flex-start; gap: 6px; }
+      .site-nav ul { flex-wrap: wrap; gap: 0 20px; }
+      .site-nav a { display: inline-block; padding: 5px 0; }
+      .row, .method { scroll-margin-top: 0; }
+    }
+    @media (max-width: 900px) {
+      .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+      .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; }
+      .stats .wrap > div { grid-template-columns: 1fr; }
+      .stat { padding: 24px 0 28px; }
+      .stat + .stat { border-top: 1px solid var(--line); }
+      .row, .method-head, .step { grid-template-columns: minmax(0, 1fr); }
+      .row-head { position: static; }
+      .steps { margin-top: 32px; }
+      .step { padding: 32px 0; }
+    }
+    @media (max-width: 640px) {
+      .cases { grid-template-columns: minmax(0, 1fr); }
+      .cases article { margin-bottom: 36px; }
+      .people { grid-template-columns: minmax(0, 1fr); }
+      .views { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .views img:first-child { grid-row: auto; }
+      .options { columns: 1; }
+      .sheet { padding: 18px 16px 20px; }
+      .chart { --val: 2.9rem; --gap: 8px; }
+      .chart tbody th { width: 9.5em; padding-right: 10px; font-size: 0.875rem; }
+      .barline b { font-size: 0.9375rem; }
+      .plain thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+      .plain tr { display: block; padding: 12px 0; border-top: 1px solid var(--line); }
+      .plain tbody tr:last-child { border-bottom: 1px solid var(--line); }
+      .plain tbody th, .plain td { display: block; width: auto; padding: 0; border: 0 !important; }
+      .plain td:nth-child(2)::before { content: "Ansvar: "; color: var(--muted); }
+      .plain td:nth-child(3)::before { content: "Läge: "; }
+    }
+    @media (max-width: 560px) {
+      .pt { width: 22px; height: 22px; font-size: 0.75rem; }
+      .fields { font-size: 0.9375rem; }
+      .fields .n { width: 30px; }
+      .fields td, .fields tbody th { padding-right: 8px; }
+      .fields tbody th { width: 31%; font-size: 0.8125rem; line-height: 1.75; }
+      .fields .ok { width: 3.6em; }
+      .sheet .fields { table-layout: fixed; }
+      .sheet .fields thead th { hyphens: auto; }
+      .people { grid-template-columns: 1fr; }
+      .facts { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    }
+
+    @media print {
+      body { background: #fff; font-size: 11pt; }
+      .site-header { position: static; border: 0; background: none; backdrop-filter: none; }
+      .site-nav, .skip { display: none; }
+      .row-head { position: static; }
+      .row, .method { padding: 20px 0; }
+      figure, table, tr, .stat, .cases article { break-inside: avoid; }
+      .logos img { opacity: 1; }
+      .pt, .track, .track i, .keys i, .fields .wrong > * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#innehall">Hoppa till innehållet</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <p class="crumb"><a class="wordmark" href="../">Byggnadsbeståndsanalys</a> <span aria-hidden="true">/</span> <span>Kulturvärden</span></p>
+      <nav class="site-nav" aria-label="På den här sidan">
+        <ul>
+          <li><a href="#bakgrund">Bakgrund</a></li>
+          <li><a href="#metoden">Metoden</a></li>
+          <li><a href="#resultat">Resultat</a></li>
+          <li><a href="#lardomar">Lärdomar</a></li>
+          <li><a href="#nasta-steg">Nästa steg</a></li>
+          <li><a href="#kontakt">Kontakt</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="innehall">
+    <section class="hero" aria-labelledby="titel">
+      <div class="wrap">
+        <div>
+          <p class="status">Forskningsprojekt 2026–2029</p>
+          <h1 id="titel">Inventering av kulturvärden med hjälp av AI</h1>
+          <p class="sub">För ökad beredskap och robusthet</p>
+          <p class="lede">Kommunerna ska redovisa vilka byggnader som är särskilt värdefulla, men att inventera hus för hus tar lång tid. Vi prövar om AI kan läsa gatubilder och föreslå uppgifter om husens exteriör, som material, takform och hustyp. Antikvarierna granskar förslagen och bedömer värdet. Göteborg är första fallet.</p>
+          <p class="more"><a href="#resultat">Se resultaten hittills <span aria-hidden="true">→</span></a></p>
+        </div>
+
+        <figure>
+          <img src="bilder/gatubild-hero.webp" srcset="bilder/gatubild-hero-800.webp 800w, bilder/gatubild-hero.webp 1280w" sizes="(max-width: 900px) 100vw, 600px" width="1280" height="960" fetchpriority="high" decoding="async" alt="Gatubild av ett gult trevåningshus i trä med vita lister, burspråk och tre rundade takkupor.">
+          <figcaption class="note">Ett landshövdingehus i Göteborg. Inventeringen beskriver det som ”Fristående landshövdingehus”, och AI:n kallar det också landshövdingehus. Bild: Google Street View.</figcaption>
+        </figure>
+      </div>
+      <div class="wrap hero-facts">
+        <dl class="facts">
+          <div><dt>Tid</dt><dd>15 juni 2026 till 15 juni 2029</dd></div>
+          <div><dt>Parter</dt><dd>RISE, Göteborgs stadsmuseum och Riksantikvarieämbetet</dd></div>
+          <div><dt>Finansiering</dt><dd>Vinnova, inom programmet ShiftSweden</dd></div>
+          <div><dt>Läge</dt><dd>Drygt 1&nbsp;300 byggnader i Göteborg är jämförda med antikvariernas inventering</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="stats" aria-label="Projektet i tre tal">
+      <div class="wrap">
+        <div>
+          <div class="stat">
+            <p class="stat-label">Utmaningen</p>
+            <p class="num is-warm">77&nbsp;%</p>
+            <p>av kommunernas översiktsplaner saknar en redovisning av särskilt värdefulla byggnadsverk.</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label">Målet: minst</p>
+            <p class="num">90&nbsp;%</p>
+            <p>av AI:ns svar ska stämma med antikvariernas bedömningar.</p>
+          </div>
+          <div class="stat">
+            <p class="stat-label">Resultat hittills</p>
+            <p class="num is-accent">81&nbsp;%</p>
+            <p>av AI:ns svar stämmer för 14 kärnfält i Göteborg, oktober 2026. För alla 43 jämförda uppgifter är andelen 75&nbsp;%.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="sections">
+      <div class="wrap">
+        <section class="row" id="bakgrund" aria-labelledby="h-bakgrund">
+          <div class="row-head">
+            <h2 id="h-bakgrund">Varför projektet behövs</h2>
+          </div>
+          <div class="body">
+            <p>Sedan december 2025 ställer plan- och bygglagen nya krav på kommunerna. En lagändring förenklade bygglovsprocessen, men inte för särskilt värdefulla byggnader. Kommunerna ska nu redovisa dem i sin översiktsplan, alltså den plan som visar hur kommunen vill använda mark och vatten på lång sikt.</p>
+            <p>I dag saknar 77 procent av kommunernas översiktsplaner en sådan redovisning. Många kommuner har bett Riksantikvarieämbetet om stöd.</p>
+            <p>Problemet är tiden. En inventering görs av bebyggelseantikvarier, alltså experter på byggnaders kulturhistoriska värden. De går igenom byggnaderna en i taget, beskriver dem och klassar deras värde. I Göteborg har stadsmuseet arbetat så sedan 2024. Hittills är drygt 2&nbsp;400 av stadens omkring 103&nbsp;000 byggnader klara.</p>
+            <p>Kunskapen behövs också av ett annat skäl. En digital och ordnad beskrivning av värdefulla hus kan bli ett underlag för att bygga upp dem igen om de skadas vid kris eller krig.</p>
+          </div>
+        </section>
+
+        <section class="method" id="metoden" aria-labelledby="h-metoden">
+          <div class="method-head">
+            <h2 id="h-metoden">Så fungerar metoden</h2>
+            <div>
+              <p class="intro">AI:n beskriver det som syns. Antikvarien granskar och bedömer värdet.</p>
+              <p>Vi använder en multimodal språkmodell, en AI som kan tolka både text och bild. Den behöver inte tränas för uppgiften. I stället får den bilder av huset och noggranna instruktioner om vad den ska titta efter.</p>
+            </div>
+          </div>
+
+          <ol class="steps">
+            <li class="step">
+              <div class="step-text">
+                <h3><span class="step-no">Steg 1</span> Gatubilder av varje hus</h3>
+                <p>För varje byggnad hämtar vi gatubilder från Google Street View, från en upp till tolv bilder tagna från olika håll.</p>
+                <p>En ram i varje bild pekar ut vilket hus som ska beskrivas. Till varje bild hör uppgifter om när den togs och hur långt bort kameran stod.</p>
+              </div>
+              <figure>
+                <div class="shots">
+                  <img src="bilder/gatubild-1.webp" srcset="bilder/gatubild-1-800.webp 800w, bilder/gatubild-1.webp 1280w" sizes="(max-width: 900px) 100vw, 600px" width="1280" height="854" loading="lazy" decoding="async" alt="Gatubild snett från hörnet av ett rött trevåningshus med takkupor. En ram markerar huset.">
+                  <img src="bilder/gatubild-2.webp" width="800" height="534" loading="lazy" decoding="async" alt="Samma röda hus rakt framifrån, med ram runt fasaden.">
+                  <img src="bilder/gatubild-3.webp" width="800" height="534" loading="lazy" decoding="async" alt="Samma röda hus sett längs gatan från andra hållet, med ram runt huset.">
+                </div>
+                <figcaption class="note">Tre gatubilder av samma landshövdingehus. Ramen visar vilket hus AI:n ska beskriva. Bilder: Google Street View.</figcaption>
+              </figure>
+            </li>
+
+            <li class="step">
+              <div class="step-text">
+                <h3><span class="step-no">Steg 2</span> Instruktioner och svarsformulär</h3>
+                <p>Tillsammans med bilderna får AI:n 67 regler, ungefär sex A4-sidor, om hur den ska titta. En regel säger till exempel att varje uppgift ska bedömas på den bild där just den delen av huset syns tydligast.</p>
+                <p>Svaren fyller AI:n i ett formulär med 61 fält: hustyp, våningar, fasadmaterial, kulörer, takform, fönster, entré, stil och mer. Varje fält har fasta svarsalternativ. AI:n kan också svara ”ej synligt” eller ”osäkert”. Den ska hellre avstå än gissa.</p>
+              </div>
+              <figure class="sheet">
+                <p class="sheet-label">En av de 67 reglerna</p>
+                <blockquote>”Landshövdingehus är ett göteborgstypiskt flerbostadshus i tre våningar, oftast med murad bottenvåning och två övre våningar ursprungligen i trä. Övervåningarna kan senare vara klädda med profilerad plåt. Kräv flera samverkande kännetecken, inte bara tre våningar eller träliknande fasad.”</blockquote>
+                <p class="sheet-label" id="falt-fasad">Ett av de 61 fälten: fasadens huvudmaterial</p>
+                <ul class="options" aria-labelledby="falt-fasad">
+                  <li>tegel</li>
+                  <li>puts</li>
+                  <li>träpanel</li>
+                  <li>natursten</li>
+                  <li>betong</li>
+                  <li>profilerad eller korrugerad fasadplåt</li>
+                  <li>plåt eller metall</li>
+                  <li>skivmaterial</li>
+                  <li>glas</li>
+                  <li>eternit</li>
+                  <li>annat</li>
+                  <li class="abstain">osäkert</li>
+                  <li class="abstain">ej synligt</li>
+                </ul>
+                <figcaption class="note">Regeln och svarsalternativen är hämtade ur instruktionerna till AI:n.</figcaption>
+              </figure>
+            </li>
+
+            <li class="step">
+              <div class="step-text">
+                <h3><span class="step-no">Steg 3</span> Jämförelse med inventeringen</h3>
+                <p>Stadsmuseets inventering är facit. Den är skriven som löptext, så en AI med en egen instruktion översätter texten till samma fält. Sedan jämför vi fält för fält.</p>
+                <p>Även översättningen kan bli fel, och ibland saknas uppgiften i texten. En avvikelse betyder därför inte alltid att bildtolkningen är fel.</p>
+              </div>
+              <figure class="sheet">
+                <table class="fields">
+                  <caption class="sr">Två tolkningar som jämförs fält för fält</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Fält</th>
+                      <th scope="col">Ur gatu&shy;bilderna</th>
+                      <th scope="col">Ur inventer&shy;ingens text</th>
+                      <th scope="col">Lika</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><th scope="row">Fasad&shy;material</th><td class="v">Puts</td><td class="v">Puts</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr class="wrong"><th scope="row">Takform</th><td class="v">Sadeltak</td><td class="v">Valmat tak</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2.5 2.5l8 8m0-8l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Nej</td></tr>
+                    <tr><th scope="row">Vånings&shy;antal</th><td class="v">3</td><td class="v">3</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                  </tbody>
+                </table>
+                <figcaption class="note">Så jämförs de två tolkningarna, fält för fält. Värdena i tabellen är exempel.</figcaption>
+              </figure>
+            </li>
+
+            <li class="step">
+              <div class="step-text">
+                <h3><span class="step-no">Steg 4</span> Antikvarien avgör</h3>
+                <p>En antikvarie går igenom förslagen och rättar det som är fel. AI:ns beskrivning är ett utkast och ett underlag för antikvariens arbete.</p>
+                <p>AI:n bedömer inte om ett hus är kulturhistoriskt värdefullt. Den bedömningen gör antikvarierna.</p>
+                <p>I exemplet har AI:n rätt om det mesta men uppskattar byggåret fel. Ett byggår går sällan att se på en bild, och den sortens fel fångar antikvarien.</p>
+              </div>
+              <div>
+                <figure>
+                  <div class="photo">
+                    <img src="bilder/landshovdingehus.webp" srcset="bilder/landshovdingehus-800.webp 800w, bilder/landshovdingehus.webp 1280w" sizes="(max-width: 900px) 100vw, 600px" width="1280" height="610" loading="lazy" decoding="async" alt="Gatubild av ett trevåningshus med ljusgul träfasad över en putsad bottenvåning, rött tegeltak med takkupor och en sockel av natursten.">
+                    <span class="pt" style="left:48.8%;top:7.4%" aria-hidden="true">1</span>
+                    <span class="pt" style="left:82%;top:15.2%" aria-hidden="true">2</span>
+                    <span class="pt" style="left:10.2%;top:28.6%" aria-hidden="true">3</span>
+                    <span class="pt" style="left:37.8%;top:44.7%" aria-hidden="true">4</span>
+                    <span class="pt" style="left:76.6%;top:60.4%" aria-hidden="true">5</span>
+                    <span class="pt" style="left:56%;top:94.5%" aria-hidden="true">6</span>
+                  </div>
+                  <figcaption class="note">Ett landshövdingehus i Göteborg. Siffrorna visar var i bilden uppgifterna i tabellen syns. Bild: Google Street View.</figcaption>
+                </figure>
+                <table class="fields">
+                  <caption>AI:ns förslag jämfört med antikvariernas inventering</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col"><span class="sr">Punkt i bilden</span></th>
+                      <th scope="col">Uppgift</th>
+                      <th scope="col">AI:ns förslag</th>
+                      <th scope="col">Stämmer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td class="n"></td><th scope="row">Hustyp</th><td class="v">Landshövdinge&shy;hus</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"></td><th scope="row">Antal våningar</th><td class="v">3</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"><span class="pt">1</span></td><th scope="row">Takkupor</th><td class="v">Finns</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"><span class="pt">2</span></td><th scope="row">Tak</th><td class="v">Tegel, rött</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"></td><th scope="row">Takform</th><td class="v">Valmat tak</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"><span class="pt">3</span></td><th scope="row">Burspråk</th><td class="v">Finns</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"><span class="pt">4</span></td><th scope="row">Fasadmaterial</th><td class="v">Träpanel och puts</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"><span class="pt">5</span></td><th scope="row">Fasadkulör</th><td class="v">Gul</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr><td class="n"><span class="pt">6</span></td><th scope="row">Sockel</th><td class="v">Natursten</td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.5 7l3.4 3.4L11.5 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ja</td></tr>
+                    <tr class="wrong"><td class="n"></td><th scope="row">Byggår</th><td class="v">Cirka 1925 <small>Inventeringen anger 1917. Antikvarien rättar.</small></td><td class="ok"><svg width="13" height="13" viewBox="0 0 13 13" aria-hidden="true"><path d="M2.5 2.5l8 8m0-8l-8 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Nej</td></tr>
+                  </tbody>
+                </table>
+                <p class="note">Tabellen visar tio av de uppgifter som AI:n föreslog för huset.</p>
+              </div>
+            </li>
+          </ol>
+          <div class="step">
+            <div class="step-text">
+              <h3><span class="step-no">Under utveckling</span> Bilder ovanifrån</h3>
+              <p>Gatubilder visar sällan taket. Vi prövar därför också sju vyer av varje hus ur Google Earths 3D-modell: fyra mot fasaderna, två mot hörnen och en ovanifrån.</p>
+              <p>Programmet kontrollerar att varje bild är fullt inläst och tagen från rätt håll. Träd, ojämn kvalitet i 3D-modellen och platser utan 3D måste fortfarande en människa bedöma.</p>
+            </div>
+            <figure>
+              <div class="views">
+                <img src="bilder/vy3d-2.webp" width="640" height="366" loading="lazy" decoding="async" alt="Sju 3D-vyer av samma gula byggnad med rundat hörn och mörkt tak, sedd från fyra sidor, två hörn och rakt uppifrån. En ram visar husets form.">
+                <img src="bilder/vy3d-1.webp" width="640" height="366" loading="lazy" decoding="async" alt="">
+                <img src="bilder/vy3d-3.webp" width="640" height="366" loading="lazy" decoding="async" alt="">
+                <img src="bilder/vy3d-4.webp" width="640" height="366" loading="lazy" decoding="async" alt="">
+                <img src="bilder/vy3d-5.webp" width="640" height="366" loading="lazy" decoding="async" alt="">
+                <img src="bilder/vy3d-6.webp" width="640" height="366" loading="lazy" decoding="async" alt="">
+                <img src="bilder/vy3d-7.webp" width="640" height="366" loading="lazy" decoding="async" alt="">
+              </div>
+              <figcaption class="note">Sju vyer av samma hus, den före detta biografen Flamman i Göteborg, ur Google Earths 3D-modell. Ramen är husets form ur byggnadsdatabasen. Bilder: Google Earth.</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="row" id="resultat" aria-labelledby="h-resultat">
+          <div class="row-head">
+            <h2 id="h-resultat">Resultat hittills</h2>
+          </div>
+          <div class="body">
+            <p class="intro">Göteborg, oktober 2026. Drygt 1&nbsp;300 byggnader är jämförda med antikvariernas inventering.</p>
+            <p>Vi har gjort jämförelsen två gånger. I juni stämde 60 procent av svaren för alla 43 jämförda uppgifter. I oktober var andelen 75 procent.</p>
+            <p>Den närmare jämförelsen gäller ett urval av 14 kärnfält, till exempel hustyp, våningar, fasadmaterial och takform.</p>
+            <p><strong>När AI:n svarar stämmer 81 procent av svaren.</strong> Räknar vi varje avstående som ett fel blir andelen 72 procent. Båda talen behövs. Det första visar hur mycket man kan lita på ett svar. Det andra visar hur stor del av kärnfälten AI:n får rätt när även avstående räknas.</p>
+            <p>Alla fält går inte att jämföra för alla hus. Ibland avstår AI:n, till exempel när taket inte syns från gatan. Ibland saknar inventeringen uppgiften, till exempel arkitekturstil.</p>
+
+            <table class="chart wide">
+              <caption>Andel rätt jämfört med antikvariernas inventering <span>Göteborg, oktober 2026. Drygt 1&nbsp;300 byggnader. Strecket markerar målet, 90&nbsp;procent.</span></caption>
+              <thead>
+                <tr>
+                  <th scope="col">Kärnfält</th>
+                  <th scope="col"><span class="barline"><span class="goal"><span aria-hidden="true">Mål 90&nbsp;%</span></span><span class="sr">Andel rätt</span></span></th>
+                </tr>
+              </thead>
+              <tbody class="total">
+                <tr><th scope="row">Alla 14 kärnfält</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:81"></i></span><b>81&nbsp;%</b></span></td></tr>
+                <tr class="strict"><th scope="row">Alla 14, med avstående räknat som fel</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:72"></i></span><b>72&nbsp;%</b></span></td></tr>
+              </tbody>
+              <tbody>
+                <tr><th scope="row">Hustyp, huvudkategori</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:95"></i></span><b>95&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Sockelmaterial</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:86"></i></span><b>86&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Fönsterkulör</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:85"></i></span><b>85&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Antal våningar</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:84"></i></span><b>84&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Hustyp, underkategori</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:83"></i></span><b>83&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Takform</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:83"></i></span><b>83&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Fasadmaterial</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:82"></i></span><b>82&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Takmaterial</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:81"></i></span><b>81&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Takkulör</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:81"></i></span><b>81&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Fasadkulör</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:79"></i></span><b>79&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Arkitekturstil, huvudkategori</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:79"></i></span><b>79&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Spröjs</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:66"></i></span><b>66&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Dekor</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:65"></i></span><b>65&nbsp;%</b></span></td></tr>
+                <tr><th scope="row">Arkitekturstil, underkategori</th><td><span class="barline"><span class="track" aria-hidden="true"><i style="--v:58"></i></span><b>58&nbsp;%</b></span></td></tr>
+              </tbody>
+            </table>
+            <p class="note">Rätt betyder att AI:ns svar stämmer med antikvariernas inventering. Andelen räknas på de fall där AI:n har svarat och inventeringen har en uppgift att jämföra med. Inventeringens text har översatts till samma fält med hjälp av AI.</p>
+
+            <h3>Så läser du resultatet</h3>
+            <p>Enkla och tydliga drag går bäst. Hustyp i grov indelning stämmer i 95 procent av fallen. Det som kräver ett tränat öga går sämre: detaljerad arkitekturstil, dekor och spröjs, de smala ribborna som delar ett fönster i mindre rutor.</p>
+            <p>Siffrorna är ett delresultat, fyra månader in i ett treårigt projekt.</p>
+          </div>
+        </section>
+
+        <section class="row" id="lardomar" aria-labelledby="h-lardomar">
+          <div class="row-head">
+            <h2 id="h-lardomar">Vad jämförelsen har lärt oss</h2>
+          </div>
+          <div class="body">
+            <p class="intro">En avvikelse är inte alltid AI:ns fel. Ibland visar den att inventeringen och AI:n använder orden på olika sätt.</p>
+            <p>Under exempelbilderna står vad inventeringens text säger, vad facit blev när texten översattes till fält, och vad AI:n svarade utifrån gatubilderna.</p>
+
+            <div class="cases wide">
+              <article>
+                <figure>
+                  <img src="bilder/nedslag-landshovdingehus.webp" width="800" height="600" loading="lazy" decoding="async" alt="En rad trevåningshus längs en gata, med bottenvåning i rött tegel och två övre våningar i ljus och röd träpanel.">
+                </figure>
+                <dl class="verdict"><div><dt>Instruktionen till AI:n</dt><dd>tre våningar, oftast murad bottenvåning och två övre våningar ursprungligen i trä</dd></div></dl>
+                <h3>Landshövdingehus</h3>
+                <div><p>Inventeringen anger landshövdingehus för 175 byggnader. AI:n kallar 166 av dem samma sak. Instruktionen kräver flera kännetecken samtidigt, inte bara tre våningar eller en fasad som liknar trä.</p>
+                  <p class="note">Kvarteret Åkermyntan vid Lugnet i Göteborg, byggt 1931–1934. Bild: Thomas Höjemo, <a href="https://commons.wikimedia.org/wiki/File:%C3%85kermyntan.jpg">Wikimedia Commons</a>, <a href="https://creativecommons.org/licenses/by/2.5/deed.sv">CC BY 2.5</a>, beskuren.</p>
+                </div>
+              </article>
+              <article>
+                <figure>
+                  <div class="duo">
+                    <img src="bilder/nedslag-tra.webp" width="387" height="580" loading="lazy" decoding="async" alt="Närbild av en gul fasad med stående panel och vita fönsterfoder.">
+                    <img src="bilder/nedslag-plat.webp" width="470" height="705" loading="lazy" decoding="async" alt="Närbild av en ljus fasad med jämna, skarpa profiler runt ett fönster.">
+                  </div>
+                </figure>
+                <div class="duo">
+                  <dl class="verdict"><div><dt>Inventeringen</dt><dd>”Fasader klädda med locklistpanel”</dd></div><div><dt>Facit</dt><dd>träpanel</dd></div><div><dt>AI:n</dt><dd>träpanel</dd></div></dl>
+                  <dl class="verdict"><div><dt>Inventeringen</dt><dd>”övre våningar klädda med smal grov locklistpanel”</dd></div><div><dt>Facit</dt><dd>träpanel</dd></div><div class="differs"><dt>AI:n</dt><dd>profilerad plåt</dd></div></dl>
+                </div>
+                <h3>Trä eller plåt</h3>
+                <div><p>Plåt kan se ut som träpanel. Facit översätter alltid ordet locklistpanel till träpanel. AI:n och inventeringen är överens om trä eller plåt i 457 av 552 hus. En skillnad kan bero på AI:n, men också på att fasaden har bytts efter inventeringen eller på att ordet locklistpanel kan användas även när panelen är av plåt.</p>
+                  <p class="note">Två olika hus. Vilket material den högra fasaden faktiskt har är inte kontrollerat på plats. Bilder: Google Street View.</p>
+                </div>
+              </article>
+              <article>
+                <figure>
+                  <img src="bilder/nedslag-vaningar.webp" width="800" height="600" loading="lazy" decoding="async" alt="Ljust tvåvåningshus med tegeltak och flera takkupor.">
+                </figure>
+                <dl class="verdict"><div><dt>Inventeringen</dt><dd>våningar ”2”, ”Plåtklädda takkupor in till vinden i båda takfallen”</dd></div><div><dt>Facit</dt><dd>2 våningar, ingen inredd vind</dd></div><div class="differs"><dt>AI:n</dt><dd>2 våningar, inredd vind finns</dd></div></dl>
+                <h3>Våningar</h3>
+                <div><p>Våningsantalet stämmer i 1&nbsp;065 av 1&nbsp;272 hus. Svårast är hus i ett och ett halvt plan. Sådana hus kan räknas på två sätt, och inventeringen gör båda: av 25 sådana hus är 14 kodade som en våning med inredd vind och 11 som två våningar.</p>
+                  <p class="note">Om vinden är inredd är svårt att avgöra från gatan. Bild: Google Street View.</p>
+                </div>
+              </article>
+              <article>
+                <figure>
+                  <img src="bilder/nedslag-dekor.webp" width="800" height="600" loading="lazy" decoding="async" alt="Fasad med rikt utformade fönsteromfattningar, lister och takkupor över en bottenvåning i randigt tegel.">
+                </figure>
+                <dl class="verdict"><div><dt>Inventeringen</dt><dd>”de rikt utsmyckade, omsorgsfullt utformade gatufasaderna”</dd></div><div><dt>Facit</dt><dd>rik dekor</dd></div><div><dt>AI:n</dt><dd>rik dekor</dd></div></dl>
+                <h3>Dekor</h3>
+                <div><p>Dekornivån stämmer i 592 av 914 hus. AI:n väljer oftare en högre nivå än en lägre, eftersom instruktionen säger att den ska välja det högre steget när den tvekar. Rik dekor känner AI:n igen väl: 78 av 91 hus.</p>
+                  <p class="note">Bild: Google Street View.</p>
+                </div>
+              </article>
+            </div>
+
+            <p>Lärdomarna går tillbaka in i instruktionerna. De visar också var antikvarierna och AI:n behöver ett gemensamt språk.</p>
+          </div>
+        </section>
+
+        <section class="row" id="nasta-steg" aria-labelledby="h-nasta">
+          <div class="row-head">
+            <h2 id="h-nasta">Nästa steg</h2>
+          </div>
+          <div class="body">
+            <p class="intro">Projektet pågår till juni 2029.</p>
+            <p>Den närmaste tiden ska vi</p>
+            <ul>
+              <li>förbättra instruktionerna tills de centrala fälten når 90 procent rätt</li>
+              <li>pröva metoden i fler stadsdelar i Göteborg</li>
+              <li>pröva om bilder ovanifrån kan komplettera gatubilderna</li>
+              <li>föra in resultaten i stadsmuseets geokodade system, där varje byggnad är knuten till sin plats på kartan</li>
+              <li>starta arbetet i övriga landet tillsammans med Riksantikvarieämbetet</li>
+              <li>testa öppna AI-modeller, så att data inte behöver lämna egna system.</li>
+            </ul>
+
+            <p>På sikt vill vi också pröva metoden på antikvariernas egna foton, överflygningsbilder, inskannade äldre dokument och bygglovshandlingar. AI:ns förslag kan på sikt bli ett stöd i fältarbetet, till exempel i en app som tar bilden på plats.</p>
+
+            <h3>Arbetspaket</h3>
+            <table class="plain wide">
+              <caption class="sr">Projektets fem arbetspaket</caption>
+              <thead>
+                <tr><th scope="col">Arbetspaket</th><th scope="col">Ansvar</th><th scope="col">Läge i oktober 2026</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">1. AI-labb för byggnadsinformation</th><td>RISE</td><td>Pågår</td></tr>
+                <tr><th scope="row">2. Inventering i Göteborg</th><td>Göteborgs stadsmuseum</td><td>Pågår</td></tr>
+                <tr><th scope="row">3. Inventering i övriga Sverige</th><td>Riksantikvarieämbetet</td><td>Planerad</td></tr>
+                <tr><th scope="row">4. Andra datakällor</th><td>Riksantikvarieämbetet</td><td>Planerad</td></tr>
+                <tr><th scope="row">5. Kommunikation och nyttiggörande</th><td>RISE</td><td>Löpande</td></tr>
+              </tbody>
+            </table>
+            <p>Riksantikvarieämbetet planerar att använda metoden i sitt stöd till landets kommuner.</p>
+          </div>
+        </section>
+
+        <section class="row" id="bakom" aria-labelledby="h-bakom">
+          <div class="row-head">
+            <h2 id="h-bakom">Bakom projektet</h2>
+          </div>
+          <div class="body">
+            <p>RISE prövade först gatubilder och AI i ett arbete åt Riksantikvarieämbetet. Göteborgs stadsmuseum hörde av sig för att använda samma metoder. Samarbetet började våren 2026, och i maj gjordes ett första test på 1&nbsp;600 byggnader som redan var inventerade.</p>
+            <dl class="deflist">
+              <div><dt>RISE</dt><dd>Koordinerar projektet. RISE utvecklar AI-metoden, hämtar bilderna, skriver instruktionerna och analyserar resultaten. RISE har analyserat över en miljon gatubilder åt svenska myndigheter och har arbetat med det svenska byggnadsbeståndet i tio år.</dd></div>
+              <div><dt>Göteborgs stadsmuseum</dt><dd>Är behovsägare, alltså en part som ska använda resultatet. Museets antikvarier har gjort den inventering som AI:n jämförs med. De har också granskat fälten och svarsalternativen.</dd></div>
+              <div><dt>Riksantikvarieämbetet</dt><dd>Är också behovsägare. Myndigheten bidrar med ett nationellt perspektiv och planerar att sprida metoden till landets kommuner.</dd></div>
+            </dl>
+            <p>Projektet finansieras av Vinnova genom Impact Innovation, inom programmet ShiftSweden. Den totala budgeten är 14,6 miljoner kronor, varav 6,0 miljoner från Vinnova. Göteborgs stad och Riksantikvarieämbetet bidrar med eget arbete. Diarienummer hos Vinnova: 2026-00968.</p>
+            <ul class="logos wide">
+              <li><img src="bilder/logo-rise.png" width="69" height="88" style="height:44px" loading="lazy" decoding="async" alt="RISE"></li>
+              <li><img src="bilder/logo-goteborgs-stadsmuseum.png" width="199" height="88" style="height:44px" loading="lazy" decoding="async" alt="Göteborgs stadsmuseum"></li>
+              <li><img src="bilder/logo-raa.png" width="265" height="56" style="height:28px" loading="lazy" decoding="async" alt="Riksantikvarieämbetet"></li>
+              <li><img src="bilder/logo-vinnova.png" width="200" height="48" style="height:24px" loading="lazy" decoding="async" alt="Vinnova"></li>
+              <li><img src="bilder/logo-shiftsweden.png" width="191" height="56" style="height:28px" loading="lazy" decoding="async" alt="ShiftSweden"></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="row" id="fragor" aria-labelledby="h-fragor">
+          <div class="row-head">
+            <h2 id="h-fragor">Vanliga frågor</h2>
+          </div>
+          <div class="body">
+            <dl class="deflist open">
+              <div><dt>Ersätter AI:n antikvarien?</dt><dd>Nej. AI:n beskriver det som syns på bilderna. Antikvarien granskar, rättar och bedömer värdet. AI:n kan hjälpa till med enformiga och upprepade arbetsmoment.</dd></div>
+              <div><dt>Kan AI:n avgöra om ett hus är värdefullt?</dt><dd>Nej, och det är inte uppgiften. AI:n beskriver exteriören: material, kulörer, takform, hustyp och liknande. Beskrivningen är ett underlag för antikvariens bedömning.</dd></div>
+              <div><dt>Vilka bilder används?</dt><dd>Gatubilder från Google Street View, en till tolv per hus. Vi prövar också vyer ur Google Earths 3D-modell.</dd></div>
+              <div><dt>Hur vet ni att svaren stämmer?</dt><dd>Vi jämför dem fält för fält med stadsmuseets inventering. Instruktionerna justeras efter varje jämförelse. Svaren ska till slut granskas av en antikvarie.</dd></div>
+              <div><dt>Kan vår kommun använda metoden?</dt><dd>Inte som färdigt verktyg ännu. Metoden prövas först i Göteborg. Riksantikvarieämbetet planerar att använda den i sitt stöd till kommunerna. <a href="#kontakt">Hör gärna av dig</a> om din kommun vill följa arbetet.</dd></div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="row" id="publikationer" aria-labelledby="h-publ">
+          <div class="row-head">
+            <h2 id="h-publ">Presentationer och publikationer</h2>
+          </div>
+          <div class="body">
+            <h3>Föredrag</h3>
+            <ul class="refs">
+              <li><b>AI som hjälp vid byggnadsinventering</b><span>Johanna Engman, Göteborgs stadsmuseum, och Mikael Mangold, RISE. Byggnadsvårdens konvent, Mariestad, 24 september 2026.</span></li>
+              <li><b lang="en">AI-assisted prediction of building parameters for cultural heritage inventories</b><span>Tim Johansson och Mikael Mangold, RISE. Energy Efficiency in Historic Buildings, Strasbourg, 2026.</span></li>
+              <li><b>AI som hjälp vid byggnadsinventering</b><span>Johanna Engman, Göteborgs stadsmuseum, och Jens Mattsson, RISE. Digikult, 15 oktober 2026.</span></li>
+              <li><b>Poster om projektet</b><span>Omställningslabbets framtidslabb, Stockholm, 25–26 november 2026.</span></li>
+            </ul>
+            <h3>Forskning som projektet bygger på</h3>
+            <p>Den första artikeln nedan prövar att förutsäga kulturvärden ur gatubilder och diskuterar riskerna med det. I det här projektet beskriver AI:n husens exteriör, och antikvarierna bedömer värdet.</p>
+            <ul class="refs">
+              <li><b lang="en">Using street view images and visual LLMs to predict heritage values for governance support: risks, ethics, and policy implications</b><span>Tim Johansson, Mikael Mangold, Kristina Dabrock, Anna Donarelli och Ingrid Campo-Ruiz. npj Heritage Science 14, 448 (2026). <a href="https://doi.org/10.1038/s40494-026-02924-7">doi.org/10.1038/s40494-026-02924-7</a>. Förtryck: <a href="https://arxiv.org/abs/2601.06056">arXiv:2601.06056</a>.</span></li>
+              <li><b>Artikel i Building and Environment, 2026</b><span><a href="https://doi.org/10.1016/j.buildenv.2026.114654">doi.org/10.1016/j.buildenv.2026.114654</a></span></li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="row" id="labbet" aria-labelledby="h-labbet">
+          <div class="row-head">
+            <h2 id="h-labbet">Projektet i omställningslabbet</h2>
+          </div>
+          <div class="body">
+            <p>Projektet ingår i omställningslabbet Bygga hållbart och flexibelt inom ShiftSweden. Labbet arbetar främst med hur nya byggnader kan bli cirkulära och hålla länge. Vårt bidrag är kunskap om det som redan står på platsen.</p>
+            <p>Vi använder fyrstegsprincipen som tankemodell: tänk om, optimera, bygg om och först därefter bygg nytt. Kunskap om befintliga hus och deras värden behövs i alla fyra stegen, från att se vad som finns på platsen till att planera varsam renovering och återbruk.</p>
+            <figure class="map">
+              <div class="map-img">
+                <img src="bilder/klassning-bramaregarden.webp" srcset="bilder/klassning-bramaregarden-800.webp 800w, bilder/klassning-bramaregarden.webp 1360w" sizes="(max-width: 900px) 100vw, 700px" width="1360" height="680" loading="lazy" decoding="async" alt="Karta över stadsdelen Brämaregården i Göteborg. Byggnaderna är färgade efter stadsmuseets klassning i guld, silver och brons. Byggnader utan klassning är streckade.">
+                <span class="map-label" aria-hidden="true">Brämaregården</span>
+                <span class="north" aria-hidden="true">N</span>
+              </div>
+              <figcaption>
+                <ul class="keys" aria-label="Teckenförklaring">
+                  <li><i style="background:var(--k-guld)" aria-hidden="true"></i>Guld</li>
+                  <li><i style="background:var(--k-silver)" aria-hidden="true"></i>Silver</li>
+                  <li><i style="background:var(--k-brons)" aria-hidden="true"></i>Brons</li>
+                  <li><i class="utan" aria-hidden="true"></i>Utan klassning</li>
+                </ul>
+                <p class="note">Stadsmuseets antikvarier klassar Göteborgs byggnader efter kulturhistoriskt värde. Arbetet pågår. Kartan visar Brämaregården. Klassningen är antikvariernas, inte AI:ns. Underlag: Göteborgs stadsmuseum.</p>
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="row" id="kontakt" aria-labelledby="h-kontakt">
+          <div class="row-head">
+            <h2 id="h-kontakt">Hör av dig</h2>
+          </div>
+          <div class="body">
+            <p class="intro">Vill du veta mer, dela erfarenheter eller följa arbetet?</p>
+            <p>Vi vill gärna höra från kommuner som arbetar med de nya kraven i plan- och bygglagen, från antikvarier och från forskare och projekt som arbetar med befintliga byggnader eller med AI i offentlig verksamhet.</p>
+            <div class="people">
+              <p><b>Tim Johansson</b><span>Projektledare, RISE</span><a href="mailto:tim.johansson@ri.se">tim.johansson@ri.se</a></p>
+              <p><b>Jens Mattsson</b><span>Analytiker, RISE</span><a href="mailto:jens.mattsson@ri.se">jens.mattsson@ri.se</a></p>
+              <p><b>Mikael Mangold</b><span>Forskare, RISE</span><a href="mailto:mikael.mangold@ri.se">mikael.mangold@ri.se</a></p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 Byggnadsbeståndsanalys</p>
+      <p><a href="../">byggnadsbestandsanalys.se</a></p>
+    </div>
+  </footer>
+</body>
+</html>
